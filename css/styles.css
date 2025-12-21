@@ -599,6 +599,14 @@ body {
     margin-bottom: 2rem;
 }
 
+.module-header-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
 .module-title {
     font-size: 1.8rem;
     font-weight: 700;

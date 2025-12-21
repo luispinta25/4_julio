@@ -34,6 +34,17 @@ const socioModalActivo = document.getElementById('socio-modal-activo');
 const socioModalGuardar = document.getElementById('socio-modal-guardar');
 const socioModalMsg = document.getElementById('socio-modal-msg');
 
+// Socio create modal elements (global)
+const socioCreateModal = document.getElementById('socio-create-modal');
+const socioCreateCedula = document.getElementById('socio-create-cedula');
+const socioCreateNombre = document.getElementById('socio-create-nombre');
+const socioCreateCelular = document.getElementById('socio-create-celular');
+const socioCreateCorreo = document.getElementById('socio-create-correo');
+const socioCreateDesde = document.getElementById('socio-create-desde');
+const socioCreateActivo = document.getElementById('socio-create-activo');
+const socioCreateGuardar = document.getElementById('socio-create-guardar');
+const socioCreateMsg = document.getElementById('socio-create-msg');
+
 // View cache
 const viewCache = new Map(); // viewName -> { containerEl: HTMLElement, initialized: boolean }
 let currentViewName = null;
@@ -131,6 +142,20 @@ function setupEventListeners() {
 
         if (socioModalGuardar) {
             socioModalGuardar.addEventListener('click', saveSocioEstado);
+        }
+    }
+
+    if (socioCreateModal) {
+        socioCreateModal.querySelectorAll('[data-modal-close="true"]').forEach(el => {
+            el.addEventListener('click', () => closeSocioCreateModal());
+        });
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && socioCreateModal && !socioCreateModal.classList.contains('hidden')) {
+                closeSocioCreateModal();
+            }
+        });
+        if (socioCreateGuardar) {
+            socioCreateGuardar.addEventListener('click', saveNewSocio);
         }
     }
 }
@@ -607,6 +632,7 @@ async function initDashboardModule() {
         const v = String(view || '').trim();
         if (!v) return false;
         if (v === 'dashboard' || v === 'pdf') return true;
+        if (v === 'new_socio') return isAdmin();
         const requiresAdmin = v === 'regularizacion' || v === 'tipos_pago';
         return userHasModule(v) && (!requiresAdmin || isAdmin());
     }
@@ -628,6 +654,20 @@ async function initDashboardModule() {
             setInlineMessage(msgEl, '', '');
             setActiveNav(to);
             loadView(to);
+        });
+    });
+
+    // Bind dashboard actions
+    grid.querySelectorAll('button[data-action="new-socio"]').forEach(btn => {
+        btn.addEventListener('click', async () => {
+            if (!isAdmin()) {
+                setInlineMessage(msgEl, 'Acceso restringido: solo ADMIN puede crear socios.', 'error');
+                return;
+            }
+            setInlineMessage(msgEl, '', '');
+            setActiveNav('socios');
+            await loadView('socios');
+            openSocioCreateModal();
         });
     });
 
@@ -1737,6 +1777,145 @@ function closeSocioModal() {
     socioModal.classList.add('hidden');
     socioModal.setAttribute('aria-hidden', 'true');
     socioModalCurrentCedula = null;
+}
+
+// ==========================================
+// SOCIO CREATE MODAL
+// ==========================================
+function openSocioCreateModal() {
+    if (!socioCreateModal) return;
+
+    const canCreate = isAdmin();
+    setInlineMessage(socioCreateMsg, '', '');
+
+    // Reset fields
+    if (socioCreateCedula) socioCreateCedula.value = '';
+    if (socioCreateNombre) socioCreateNombre.value = '';
+    if (socioCreateCelular) socioCreateCelular.value = '';
+    if (socioCreateCorreo) socioCreateCorreo.value = '';
+    if (socioCreateDesde) socioCreateDesde.value = '';
+    if (socioCreateActivo) socioCreateActivo.checked = true;
+
+    // Gate by role (UI); RLS should also enforce.
+    [socioCreateCedula, socioCreateNombre, socioCreateCelular, socioCreateCorreo, socioCreateDesde, socioCreateActivo, socioCreateGuardar]
+        .filter(Boolean)
+        .forEach(el => { el.disabled = !canCreate; });
+
+    if (!canCreate) {
+        setInlineMessage(socioCreateMsg, 'Acceso restringido: solo ADMIN puede crear socios.', 'error');
+    }
+
+    socioCreateModal.classList.remove('hidden');
+    socioCreateModal.setAttribute('aria-hidden', 'false');
+
+    setTimeout(() => {
+        if (socioCreateCedula && !socioCreateCedula.disabled) socioCreateCedula.focus();
+    }, 0);
+}
+
+function closeSocioCreateModal() {
+    if (!socioCreateModal) return;
+    socioCreateModal.classList.add('hidden');
+    socioCreateModal.setAttribute('aria-hidden', 'true');
+}
+
+function looksLikeCedula(value) {
+    const v = String(value || '').trim();
+    // Ecuador cédula is 10 digits; we keep it simple for now.
+    return /^\d{10}$/.test(v);
+}
+
+async function saveNewSocio() {
+    if (!isAdmin()) return;
+    if (!socioCreateCedula || !socioCreateNombre) return;
+
+    const cedula = String(socioCreateCedula.value || '').trim();
+    const nombre = String(socioCreateNombre.value || '').trim();
+    const celular = String(socioCreateCelular?.value || '').trim();
+    const correo = String(socioCreateCorreo?.value || '').trim();
+    const desdeRaw = String(socioCreateDesde?.value || '').trim();
+    const desdeYear = desdeRaw ? Number(desdeRaw) : null;
+    const activo = !!socioCreateActivo?.checked;
+
+    if (!cedula) {
+        setInlineMessage(socioCreateMsg, 'La cédula es obligatoria.', 'error');
+        return;
+    }
+    if (!looksLikeCedula(cedula)) {
+        setInlineMessage(socioCreateMsg, 'La cédula debe tener 10 dígitos.', 'error');
+        return;
+    }
+    if (!nombre) {
+        setInlineMessage(socioCreateMsg, 'El nombre es obligatorio.', 'error');
+        return;
+    }
+    if (desdeRaw && !Number.isFinite(desdeYear)) {
+        setInlineMessage(socioCreateMsg, 'El año "Socio desde" es inválido.', 'error');
+        return;
+    }
+
+    await withLoader('Creando socio...', async () => {
+        try {
+            const client = getSupabaseClient();
+            const payload = {
+                cedula,
+                socio: nombre,
+                estado: activo,
+                celular: celular || null,
+                correo: correo || null,
+                socio_desde: Number.isFinite(desdeYear) ? Math.trunc(desdeYear) : null
+            };
+
+            const { data, error } = await client
+                .from('unoric_socios')
+                .insert([payload])
+                .select('*')
+                .single();
+            if (error) throw error;
+
+            // Update local state for Socios module if loaded
+            const newSocio = {
+                ...(data || payload),
+                lotes: [],
+                hasLotes: false,
+                needsUpdate: false,
+                invalidPhone: false,
+                invalidEmail: false
+            };
+
+            // If socios module has been initialized, update arrays and stats
+            if (Array.isArray(allSocios)) {
+                allSocios = [newSocio, ...allSocios];
+                filteredSocios = [...allSocios];
+
+                // Update stats if elements exist
+                const totalSociosEl = document.getElementById('total-socios');
+                const sociosConLotesEl = document.getElementById('socios-con-lotes');
+                const sociosIncompleteEl = document.getElementById('socios-incomplete');
+                if (totalSociosEl) totalSociosEl.textContent = allSocios.length;
+                if (sociosConLotesEl) sociosConLotesEl.textContent = allSocios.filter(s => s.hasLotes).length;
+                if (sociosIncompleteEl) sociosIncompleteEl.textContent = allSocios.filter(s => s.needsUpdate).length;
+
+                // Refresh table using current filters if present
+                const searchInput = document.getElementById('search-socios');
+                const filterEtapa = document.getElementById('filter-etapa');
+                const filterEstado = document.getElementById('filter-estado');
+                if (searchInput && filterEtapa && filterEstado) {
+                    filterSocios(searchInput.value, filterEtapa.value, filterEstado.value);
+                } else {
+                    renderSociosTable(filteredSocios);
+                }
+
+                writeSociosQuickCache(allSocios);
+            }
+
+            setInlineMessage(socioCreateMsg, 'Socio creado correctamente.', 'success');
+            setTimeout(() => closeSocioCreateModal(), 450);
+        } catch (err) {
+            console.error(err);
+            setInlineMessage(socioCreateMsg, `Error creando socio: ${err.message}`, 'error');
+        }
+    });
 }
 
 async function saveSocioEstado() {
@@ -2889,6 +3068,15 @@ async function initSociosModule() {
         searchInput.addEventListener('input', (e) => filterSocios(e.target.value, filterEtapa.value, filterEstado.value));
         filterEtapa.addEventListener('change', (e) => filterSocios(searchInput.value, e.target.value, filterEstado.value));
         filterEstado.addEventListener('change', (e) => filterSocios(searchInput.value, filterEtapa.value, e.target.value));
+
+        // Nuevo socio button
+        const newBtn = document.getElementById('socios-new-btn');
+        if (newBtn && newBtn.dataset.bound !== 'true') {
+            newBtn.dataset.bound = 'true';
+            newBtn.addEventListener('click', () => {
+                openSocioCreateModal();
+            });
+        }
 
     } catch (error) {
         console.error(error);

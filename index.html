@@ -190,6 +190,77 @@
         </div>
     </div>
 
+    <!-- Socio Create Modal -->
+    <div id="socio-create-modal" class="modal hidden" aria-hidden="true" role="dialog" aria-modal="true">
+        <div class="modal-backdrop" data-modal-close="true"></div>
+        <div class="modal-card" role="document">
+            <div class="modal-header">
+                <div>
+                    <div class="modal-title">Nuevo socio</div>
+                    <div class="modal-subtitle">Crea un socio para poder asignar lotes y registrar cobros.</div>
+                </div>
+                <button class="modal-close" type="button" data-modal-close="true" aria-label="Cerrar">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+
+            <div class="modal-body">
+                <div class="form-grid">
+                    <div class="form-field">
+                        <label class="form-label" for="socio-create-cedula">Cédula</label>
+                        <input id="socio-create-cedula" class="form-input" type="text" placeholder="Ej: 1712345678" autocomplete="off" />
+                    </div>
+                    <div class="form-field">
+                        <label class="form-label" for="socio-create-nombre">Nombre</label>
+                        <input id="socio-create-nombre" class="form-input" type="text" placeholder="Nombres y apellidos" autocomplete="off" />
+                    </div>
+                    <div class="form-field">
+                        <label class="form-label" for="socio-create-celular">Celular (opcional)</label>
+                        <input id="socio-create-celular" class="form-input" type="text" placeholder="Ej: 0999999999" autocomplete="off" />
+                    </div>
+                    <div class="form-field">
+                        <label class="form-label" for="socio-create-correo">Correo (opcional)</label>
+                        <input id="socio-create-correo" class="form-input" type="email" placeholder="Ej: correo@ejemplo.com" autocomplete="off" />
+                    </div>
+                    <div class="form-field">
+                        <label class="form-label" for="socio-create-desde">Socio desde (año, opcional)</label>
+                        <input id="socio-create-desde" class="form-input" type="number" min="1900" max="2100" step="1" placeholder="Ej: 2020" />
+                    </div>
+                </div>
+
+                <div class="modal-section">
+                    <div class="switch-row">
+                        <div class="switch-labels">
+                            <div class="switch-label">Retirado</div>
+                        </div>
+
+                        <label class="switch" title="Estado del socio">
+                            <input id="socio-create-activo" type="checkbox" checked />
+                            <span class="switch-slider"></span>
+                        </label>
+
+                        <div class="switch-labels">
+                            <div class="switch-label">Activo</div>
+                        </div>
+                    </div>
+
+                    <div class="helper-text">
+                        Si el socio está <strong>Retirado</strong>, no se permiten cobros/pagos ni asignación de lotes.
+                    </div>
+                </div>
+
+                <div id="socio-create-msg" class="helper-text" style="display:none;"></div>
+            </div>
+
+            <div class="modal-footer">
+                <button class="btn btn-secondary" type="button" data-modal-close="true">Cancelar</button>
+                <button id="socio-create-guardar" class="btn btn-primary" type="button">
+                    <i class="fas fa-save" style="margin-right:0.5rem;"></i>Crear
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- Scripts -->
     <script src="js/config.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
