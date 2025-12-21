@@ -1,0 +1,76 @@
+<div class="module-header">
+    <h2 class="module-title">Gestión de Lotes</h2>
+</div>
+
+<!-- Stats Row -->
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-icon icon-green">
+            <i class="fas fa-layer-group"></i>
+        </div>
+        <div class="stat-info">
+            <span class="stat-label">Total Lotes</span>
+            <span class="stat-value" id="total-lotes">...</span>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon icon-blue">
+            <i class="fas fa-check-circle"></i>
+        </div>
+        <div class="stat-info">
+            <span class="stat-label">Promesa Firmada</span>
+            <span class="stat-value" id="lotes-promesa">...</span>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon icon-red">
+            <i class="fas fa-exclamation-triangle"></i>
+        </div>
+        <div class="stat-info">
+            <span class="stat-label">Datos Incompletos</span>
+            <span class="stat-value" id="lotes-incomplete">...</span>
+        </div>
+    </div>
+</div>
+
+<!-- Filters -->
+<div class="filters-bar">
+    <div class="search-wrapper">
+        <i class="fas fa-search search-icon"></i>
+        <input type="text" id="search-lotes" class="search-input" placeholder="Buscar por lote, socio o cédula...">
+    </div>
+    <div class="filter-group">
+        <select id="filter-lote-etapa" class="filter-select">
+            <option value="all">Todas las Etapas</option>
+            <option value="1">Etapa 1 (Verde)</option>
+            <option value="2">Etapa 2 (Rojo)</option>
+            <option value="3">Etapa 3 (Café)</option>
+        </select>
+        <select id="filter-lote-estado" class="filter-select">
+            <option value="all">Todos los Estados</option>
+            <option value="ok">Datos Completos</option>
+            <option value="update">Requiere Actualización</option>
+        </select>
+    </div>
+</div>
+
+<!-- Table -->
+<div class="table-container">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Lote / Etapa</th>
+                <th>Socio (Dueño)</th>
+                <th>Contacto Registrado</th>
+                <th>Promesa</th>
+                <th>Estado</th>
+                <th>Acciones</th>
+            </tr>
+        </thead>
+        <tbody id="lotes-table-body">
+            <tr>
+                <td colspan="6" class="text-center p-4">Cargando datos...</td>
+            </tr>
+        </tbody>
+    </table>
+</div>

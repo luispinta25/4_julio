@@ -1,0 +1,75 @@
+<div class="module-header">
+    <h2 class="module-title">Gestión de Socios</h2>
+</div>
+
+<!-- Stats Row -->
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-icon icon-blue">
+            <i class="fas fa-users"></i>
+        </div>
+        <div class="stat-info">
+            <span class="stat-label">Total Socios</span>
+            <span class="stat-value" id="total-socios">...</span>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon icon-green">
+            <i class="fas fa-map-marked-alt"></i>
+        </div>
+        <div class="stat-info">
+            <span class="stat-label">Con Lotes</span>
+            <span class="stat-value" id="socios-con-lotes">...</span>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon icon-red">
+            <i class="fas fa-exclamation-circle"></i>
+        </div>
+        <div class="stat-info">
+            <span class="stat-label">Requieren Datos</span>
+            <span class="stat-value" id="socios-incomplete">...</span>
+        </div>
+    </div>
+</div>
+
+<!-- Filters -->
+<div class="filters-bar">
+    <div class="search-wrapper">
+        <i class="fas fa-search search-icon"></i>
+        <input type="text" id="search-socios" class="search-input" placeholder="Buscar por nombre o cédula...">
+    </div>
+    <div class="filter-group">
+        <select id="filter-etapa" class="filter-select">
+            <option value="all">Todas las Etapas</option>
+            <option value="1">Etapa 1</option>
+            <option value="2">Etapa 2</option>
+            <option value="3">Etapa 3</option>
+        </select>
+        <select id="filter-estado" class="filter-select">
+            <option value="all">Todos los Estados</option>
+            <option value="ok">Datos Completos</option>
+            <option value="update">Requiere Actualización</option>
+        </select>
+    </div>
+</div>
+
+<!-- Table -->
+<div class="table-container">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Socio</th>
+                <th>Contacto</th>
+                <th>Lotes / Etapa</th>
+                <th>Estado</th>
+                <th>Acciones</th>
+            </tr>
+        </thead>
+        <tbody id="socios-table-body">
+            <tr>
+                <td colspan="5" class="text-center p-4">Cargando datos...</td>
+            </tr>
+        </tbody>
+    </table>
+</div>

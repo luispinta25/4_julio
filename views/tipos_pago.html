@@ -1,0 +1,147 @@
+<div class="module-header">
+    <h2 class="module-title">Tipos de pago</h2>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h3 class="card-title">Administración</h3>
+        <p class="card-subtitle">Solo ADMIN puede crear/editar tipos. No se permite borrar.</p>
+    </div>
+
+    <div class="form-grid">
+        <div class="form-field" style="grid-column: 1 / -1;">
+            <label class="form-label" for="tipos-search">Buscar</label>
+            <input class="form-input" id="tipos-search" type="text" placeholder="Filtrar por código o descripción..." autocomplete="off" />
+        </div>
+    </div>
+</div>
+
+<div class="grid-2">
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title" id="tipos-form-title">Nuevo tipo</h3>
+            <p class="card-subtitle">Completa los campos y guarda.</p>
+        </div>
+
+        <form id="tipos-form" class="form-grid" autocomplete="off">
+            <input type="hidden" id="tipos-id" value="" />
+
+            <div class="form-field">
+                <label class="form-label" for="tipos-codigo">Código</label>
+                <input class="form-input" id="tipos-codigo" type="text" placeholder="Ej: MENSUALIDAD" />
+            </div>
+            <div class="form-field">
+                <label class="form-label" for="tipos-descripcion">Descripción</label>
+                <input class="form-input" id="tipos-descripcion" type="text" placeholder="Ej: Mensualidad" />
+            </div>
+
+            <div class="form-field">
+                <label class="form-label" for="tipos-monto-base">Monto base (USD)</label>
+                <input class="form-input" id="tipos-monto-base" type="number" step="0.01" min="0" placeholder="Opcional" />
+            </div>
+
+            <div class="form-field">
+                <label class="form-label" for="tipos-afecta">Afecta obligaciones</label>
+                <select class="form-input" id="tipos-afecta">
+                    <option value="false">No</option>
+                    <option value="true">Sí</option>
+                </select>
+            </div>
+            <div class="form-field">
+                <label class="form-label" for="tipos-regularizacion">Es regularización</label>
+                <select class="form-input" id="tipos-regularizacion">
+                    <option value="false">No</option>
+                    <option value="true">Sí</option>
+                </select>
+            </div>
+
+            <div class="form-field" style="grid-column: 1 / -1;">
+                <button class="btn btn-primary" id="tipos-guardar" type="submit">
+                    <i class="fas fa-save" style="margin-right:0.5rem;"></i>Guardar
+                </button>
+                <button class="btn btn-secondary" id="tipos-cancelar" type="button" style="margin-top:0.5rem;">
+                    Cancelar edición
+                </button>
+                <div id="tipos-msg" class="helper-text" style="display:none;"></div>
+            </div>
+        </form>
+    </div>
+
+    <div class="card" id="tipos-tarifas-card" style="display:none;">
+        <div class="card-header">
+            <h3 class="card-title">Tarifas por año (USD)</h3>
+            <p class="card-subtitle">Para casos como MENSUALIDAD que cambian por año. No se borra: se inactiva.</p>
+        </div>
+
+        <form id="tipos-tarifas-form" class="form-grid" autocomplete="off">
+            <div class="form-field">
+                <label class="form-label" for="tipos-tarifa-anio">Año</label>
+                <input class="form-input" id="tipos-tarifa-anio" type="number" min="1900" max="2200" step="1" placeholder="2026" />
+            </div>
+
+            <div class="form-field">
+                <label class="form-label" for="tipos-tarifa-monto">Monto (USD)</label>
+                <input class="form-input" id="tipos-tarifa-monto" type="number" min="0" step="0.01" placeholder="0.00" />
+            </div>
+
+            <div class="form-field">
+                <label class="form-label" for="tipos-tarifa-activo">Activo</label>
+                <select class="form-input" id="tipos-tarifa-activo">
+                    <option value="true">Sí</option>
+                    <option value="false">No</option>
+                </select>
+            </div>
+
+            <div class="form-field" style="grid-column: 1 / -1;">
+                <button class="btn btn-primary" id="tipos-tarifa-guardar" type="submit">
+                    <i class="fas fa-save" style="margin-right:0.5rem;"></i>Guardar tarifa
+                </button>
+                <div id="tipos-tarifas-msg" class="helper-text" style="display:none;"></div>
+            </div>
+        </form>
+
+        <div class="table-container" style="margin-top: 1rem;">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Año</th>
+                        <th>Monto (USD)</th>
+                        <th>Activo</th>
+                        <th>Acción</th>
+                    </tr>
+                </thead>
+                <tbody id="tipos-tarifas-body">
+                    <tr>
+                        <td colspan="4" class="text-center p-4">Selecciona un tipo para ver tarifas</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">Listado</h3>
+            <p class="card-subtitle">Tipos disponibles en el sistema.</p>
+        </div>
+
+        <div class="table-container">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Código</th>
+                        <th>Descripción</th>
+                        <th>Monto (USD)</th>
+                        <th>Flags</th>
+                        <th>Acción</th>
+                    </tr>
+                </thead>
+                <tbody id="tipos-body">
+                    <tr>
+                        <td colspan="5" class="text-center p-4">Cargando...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>

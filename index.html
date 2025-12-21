@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Gestión - UNORIC 4 de Julio</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="css/socios.css">
+    <link rel="stylesheet" href="css/lotes.css">
+    <link rel="stylesheet" href="css/pagos.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+
+<body>
+
+    <!-- Login View -->
+    <div id="login-view" class="login-container">
+        <div class="login-card">
+            <img src="https://i.ibb.co/1tgLKr62/Gemini-Generated-Image-yqe70kyqe70kyqe7.webp" alt="Logo UNORIC"
+                class="login-logo" style="border-radius: 50%;">
+            <h1 class="login-title">UNORIC - 4 DE JULIO</h1>
+            <p class="login-subtitle">Inicie sesión para continuar</p>
+
+            <form id="login-form">
+                <div class="form-group">
+                    <label for="email" class="form-label">Correo Electrónico</label>
+                    <div class="input-wrapper">
+                        <input type="email" id="email" class="form-input" placeholder="nombre@ejemplo.com" required>
+                        <i class="fas fa-envelope password-toggle" style="pointer-events: none;"></i>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="password" class="form-label">Contraseña</label>
+                    <div class="input-wrapper">
+                        <input type="password" id="password" class="form-input" placeholder="••••••••" required>
+                        <button type="button" id="toggle-password" class="password-toggle">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-sign-in-alt" style="margin-right: 0.5rem;"></i> Iniciar Sesión
+                </button>
+                <div id="login-error" class="error-message"></div>
+            </form>
+        </div>
+    </div>
+
+    <!-- App Layout (Hidden by default) -->
+    <div id="app-layout" class="app-layout hidden">
+        <button id="mobile-menu-toggle" class="mobile-menu-toggle">
+            <i class="fas fa-bars"></i>
+        </button>
+
+        <aside id="sidebar" class="sidebar">
+            <div class="sidebar-header">
+                <img src="https://i.ibb.co/1tgLKr62/Gemini-Generated-Image-yqe70kyqe70kyqe7.webp" alt="Logo UNORIC"
+                    class="sidebar-logo">
+                <span class="sidebar-title">UNORIC</span>
+                <button id="sidebar-close-btn" class="sidebar-close-btn" title="Cerrar menú">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+
+            <nav class="nav-menu">
+                <a href="#dashboard" class="nav-item active" data-view="dashboard" data-module="dashboard">
+                    <i class="fas fa-house"></i>
+                    <span>Inicio</span>
+                </a>
+
+                <a href="#mensualidad" class="nav-item" data-view="mensualidad" data-module="mensualidad">
+                    <i class="fas fa-calendar-check"></i>
+                    <span>Cobro mensualidad</span>
+                </a>
+
+                <a href="#socios" class="nav-item" data-view="socios">
+                    <i class="fas fa-users"></i>
+                    <span>Socios</span>
+                </a>
+                <a href="#lotes" class="nav-item" data-view="lotes">
+                    <i class="fas fa-map-marked-alt"></i>
+                    <span>Lotes</span>
+                </a>
+
+                <a href="#cobros" class="nav-item" data-view="cobros" data-module="cobros">
+                    <i class="fas fa-cash-register"></i>
+                    <span>Cobros</span>
+                </a>
+                <a href="#regularizacion" class="nav-item" data-view="regularizacion" data-module="regularizacion">
+                    <i class="fas fa-clipboard-check"></i>
+                    <span>Regularización</span>
+                </a>
+                <a href="#tipos_pago" class="nav-item" data-view="tipos_pago" data-module="tipos_pago">
+                    <i class="fas fa-tags"></i>
+                    <span>Tipos de pago</span>
+                </a>
+
+                <a href="#pdf" class="nav-item" data-view="pdf" data-module="pdf">
+                    <i class="fas fa-file-pdf"></i>
+                    <span>Generar PDF</span>
+                </a>
+            </nav>
+
+            <div class="user-profile">
+                <div class="user-avatar">
+                    <i class="fas fa-user"></i>
+                </div>
+                <div class="user-info">
+                    <div id="user-name" class="user-name">Usuario</div>
+                    <div id="user-role" class="user-role">Rol</div>
+                </div>
+                <button id="logout-btn" class="logout-btn" title="Cerrar Sesión">
+                    <i class="fas fa-sign-out-alt"></i>
+                </button>
+            </div>
+        </aside>
+
+        <main id="main-content" class="main-content">
+            <!-- Dynamic Content will be loaded here -->
+        </main>
+    </div>
+
+    <!-- Global Loader -->
+    <div id="app-loader" class="app-loader hidden" aria-hidden="true">
+        <div class="app-loader-card">
+            <div class="app-loader-spinner" aria-hidden="true"></div>
+            <div id="app-loader-text" class="app-loader-text">Cargando...</div>
+        </div>
+    </div>
+
+    <!-- Socio Edit Modal -->
+    <div id="socio-modal" class="modal hidden" aria-hidden="true" role="dialog" aria-modal="true">
+        <div class="modal-backdrop" data-modal-close="true"></div>
+        <div class="modal-card" role="document">
+            <div class="modal-header">
+                <div>
+                    <div class="modal-title">Editar socio</div>
+                    <div class="modal-subtitle">Cambiar estado (Activo / Retirado)</div>
+                </div>
+                <button class="modal-close" type="button" data-modal-close="true" aria-label="Cerrar">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+
+            <div class="modal-body">
+                <div class="form-grid">
+                    <div class="form-field">
+                        <label class="form-label">Cédula</label>
+                        <input id="socio-modal-cedula" class="form-input" type="text" disabled />
+                    </div>
+                    <div class="form-field">
+                        <label class="form-label">Nombre</label>
+                        <input id="socio-modal-nombre" class="form-input" type="text" disabled />
+                    </div>
+                </div>
+
+                <div class="modal-section">
+                    <div class="switch-row">
+                        <div class="switch-labels">
+                            <div class="switch-label">Retirado</div>
+                        </div>
+
+                        <label class="switch" title="Cambiar estado">
+                            <input id="socio-modal-activo" type="checkbox" />
+                            <span class="switch-slider"></span>
+                        </label>
+
+                        <div class="switch-labels">
+                            <div class="switch-label">Activo</div>
+                        </div>
+                    </div>
+
+                    <div class="helper-text">
+                        Si el socio está <strong>Retirado</strong>, no se permiten cobros/pagos ni asignación de lotes.
+                    </div>
+                </div>
+
+                <div id="socio-modal-msg" class="helper-text" style="display:none;"></div>
+            </div>
+
+            <div class="modal-footer">
+                <button id="socio-modal-cancelar" class="btn btn-secondary" type="button"
+                    data-modal-close="true">Cancelar</button>
+                <button id="socio-modal-guardar" class="btn btn-primary" type="button">
+                    <i class="fas fa-save" style="margin-right:0.5rem;"></i>Guardar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="js/config.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
+    <script src="js/app.js?v=6"></script>
+</body>
+
+</html>

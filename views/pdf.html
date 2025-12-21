@@ -1,0 +1,196 @@
+<div class="module-header">
+  <h2 class="module-title">Generar PDF</h2>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <h3 class="card-title">Reportes</h3>
+    <p class="card-subtitle">Genera reportes profesionales (por ahora: Socios).</p>
+  </div>
+
+  <div class="reports-tabs" role="tablist" aria-label="Submenús de reportes">
+    <button class="reports-tab active" type="button" data-pdf-tab="socios" role="tab" aria-selected="true">
+      Socios
+    </button>
+  </div>
+
+  <div class="reports-panel" data-pdf-panel="socios" role="tabpanel">
+    <div class="card-header" style="padding:0; margin-bottom: 0.75rem;">
+      <h3 class="card-title">Reporte de Socios</h3>
+      <p class="card-subtitle">Filtros por etapa, lotes, año de unión y saldos pendientes.</p>
+    </div>
+
+    <div class="form-grid" autocomplete="off">
+      <div class="form-field" style="grid-column: 1 / -1;">
+        <div class="card" style="padding: 1rem;">
+          <div class="card-header" style="padding:0; margin-bottom: 0.75rem;">
+            <h3 class="card-title">Encabezado del PDF</h3>
+            <p class="card-subtitle">Personaliza el título y subtítulo del documento (no afecta la vista previa tipo Excel).</p>
+          </div>
+
+          <div class="form-grid">
+            <div class="form-field" style="grid-column: 1 / -1;">
+              <label class="form-label" for="pdf-header-title">Título</label>
+              <input class="form-input" id="pdf-header-title" type="text" value="UNORIC - Reporte de Socios" />
+            </div>
+            <div class="form-field" style="grid-column: 1 / -1;">
+              <label class="form-label" for="pdf-header-subtitle">Subtítulo (opcional)</label>
+              <input class="form-input" id="pdf-header-subtitle" type="text" placeholder="Ej: Asociación 4 de Julio" />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-field">
+        <label class="form-label" for="pdf-orientation">Orientación</label>
+        <select class="form-input" id="pdf-orientation">
+          <option value="auto" selected>Auto (recomendada)</option>
+          <option value="portrait">Vertical</option>
+          <option value="landscape">Horizontal</option>
+        </select>
+        <div id="pdf-orientation-reco" class="helper-text" style="margin-top:0.5rem;">
+          Recomendación: Auto
+        </div>
+      </div>
+
+      <div class="form-field">
+        <label class="form-label" for="dash-pdf-socios-formato">Formato</label>
+        <select class="form-input" id="dash-pdf-socios-formato">
+          <option value="general">Listado general</option>
+          <option value="por_etapa">Por etapas</option>
+        </select>
+      </div>
+
+      <div class="form-field">
+        <label class="form-label" for="dash-pdf-socios-etapa">Etapa</label>
+        <select class="form-input" id="dash-pdf-socios-etapa">
+          <option value="all">Todas</option>
+          <option value="1">Etapa 1</option>
+          <option value="2">Etapa 2</option>
+          <option value="3">Etapa 3</option>
+        </select>
+      </div>
+
+      <div class="form-field">
+        <label class="form-label" for="dash-pdf-socios-lote">Lote (opcional)</label>
+        <input class="form-input" id="dash-pdf-socios-lote" type="text" placeholder="Ej: 12" />
+      </div>
+
+      <div class="form-field">
+        <label class="form-label" for="dash-pdf-socios-desde">Año unión desde (opcional)</label>
+        <input class="form-input" id="dash-pdf-socios-desde" type="number" min="1900" max="2100" step="1" placeholder="Ej: 2018" />
+      </div>
+
+      <div class="form-field">
+        <label class="form-label" for="dash-pdf-socios-hasta">Año unión hasta (opcional)</label>
+        <input class="form-input" id="dash-pdf-socios-hasta" type="number" min="1900" max="2100" step="1" placeholder="Ej: 2025" />
+      </div>
+
+      <div class="form-field" style="grid-column: 1 / -1;">
+        <div class="reports-checks">
+          <label class="check-inline">
+            <input id="dash-pdf-socios-solo-activos" type="checkbox" checked />
+            <span>Solo activos</span>
+          </label>
+          <label class="check-inline">
+            <input id="dash-pdf-socios-solo-con-lotes" type="checkbox" />
+            <span>Solo socios con lotes</span>
+          </label>
+          <label class="check-inline">
+            <input id="dash-pdf-socios-solo-pendientes" type="checkbox" />
+            <span>Solo con saldos pendientes</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="form-field" style="grid-column: 1 / -1;">
+        <div class="reports-checks" aria-label="Columnas del PDF">
+          <label class="check-inline"><input id="pdf-col-cedula" type="checkbox" checked /> <span>Cédula</span></label>
+          <label class="check-inline"><input id="pdf-col-socio" type="checkbox" checked /> <span>Socio</span></label>
+          <label class="check-inline"><input id="pdf-col-estado" type="checkbox" checked /> <span>Estado</span></label>
+          <label class="check-inline"><input id="pdf-col-socio_desde" type="checkbox" checked /> <span>Socio desde</span></label>
+          <label class="check-inline"><input id="pdf-col-lotes" type="checkbox" checked /> <span>Lotes</span></label>
+          <label class="check-inline"><input id="pdf-col-etapas" type="checkbox" checked /> <span>Etapas</span></label>
+          <label class="check-inline"><input id="pdf-col-pendiente" type="checkbox" checked /> <span>Pendiente</span></label>
+        </div>
+        <div class="helper-text" style="margin-top:0.5rem;">Sugerencia: si activas muchas columnas, usa Horizontal.</div>
+      </div>
+
+      <div class="form-field" style="grid-column: 1 / -1;">
+        <div class="card" style="padding: 1rem;">
+          <div class="card-header" style="padding:0; margin-bottom: 0.75rem;">
+            <h3 class="card-title">Agregar columnas manualmente</h3>
+            <p class="card-subtitle">Añade columnas extra (ej: celular, correo) y decide si incluirlas en el PDF.</p>
+          </div>
+
+          <div class="form-grid" style="margin-bottom: 0.75rem;">
+            <div class="form-field">
+              <label class="form-label" for="pdf-custom-field">Campo</label>
+              <select class="form-input" id="pdf-custom-field">
+                  <option value="blank_text">En blanco (texto)</option>
+                  <option value="blank_check">En blanco (checkbox)</option>
+                <option value="celular">Celular</option>
+                <option value="correo">Correo</option>
+                <option value="num_lotes">N° Lotes</option>
+              </select>
+            </div>
+            <div class="form-field">
+              <label class="form-label" for="pdf-custom-label">Título de columna</label>
+              <input class="form-input" id="pdf-custom-label" type="text" placeholder="Ej: Teléfono" />
+            </div>
+            <div class="form-field">
+              <label class="form-label">&nbsp;</label>
+              <button class="btn btn-secondary" id="pdf-custom-add" type="button">
+                <i class="fas fa-plus" style="margin-right:0.5rem;"></i>Agregar
+              </button>
+            </div>
+          </div>
+
+          <div id="pdf-custom-cols" class="reports-checks" aria-label="Columnas personalizadas" style="margin-top:0.5rem;"></div>
+          <div id="pdf-custom-msg" class="helper-text" style="display:none; margin-top:0.5rem;"></div>
+        </div>
+      </div>
+
+      <div class="form-field" style="grid-column: 1 / -1;">
+        <div class="card" style="padding: 1rem;">
+          <div class="card-header" style="padding:0; margin-bottom: 0.75rem;">
+            <h3 class="card-title">Vista previa (tipo Excel)</h3>
+            <p class="card-subtitle">Se actualiza automáticamente dentro de una “hoja” y respeta la orientación.</p>
+          </div>
+
+          <div id="pdf-preview-stage" class="pdf-preview-stage" style="margin-top: 0.75rem;">
+            <div class="pdf-preview-viewport-inner">
+              <div id="pdf-preview-paper" class="pdf-preview-paper" data-orientation="portrait">
+                <div class="pdf-preview-paper-inner">
+                  <div class="pdf-preview-bar">
+                    <div class="pdf-preview-bar-left">
+                      <div id="pdf-preview-title" class="pdf-preview-bar-title">UNORIC - Reporte de Socios</div>
+                      <div id="pdf-preview-subtitle" class="pdf-preview-bar-subtitle" style="display:none;"></div>
+                      <div id="pdf-preview-date" class="pdf-preview-bar-date"></div>
+                    </div>
+                  </div>
+
+                  <div id="pdf-preview-wrap" class="table-container pdf-preview-table">
+                    <table class="data-table">
+                      <thead>
+                        <tr id="pdf-preview-head"></tr>
+                      </thead>
+                      <tbody id="pdf-preview-body"></tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-field" style="grid-column: 1 / -1;">
+        <button class="btn btn-primary" id="dash-pdf-socios-generate" type="button">
+          <i class="fas fa-file-pdf" style="margin-right:0.5rem;"></i>Generar PDF
+        </button>
+        <div id="dash-pdf-msg" class="helper-text" style="display:none;"></div>
+      </div>
+    </div>
+  </div>
+</div>

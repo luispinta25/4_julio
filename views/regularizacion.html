@@ -1,0 +1,91 @@
+<div class="module-header">
+    <h2 class="module-title">Regularización</h2>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h3 class="card-title">Buscar socio</h3>
+        <p class="card-subtitle">Solo ADMIN puede actualizar el estado de regularización.</p>
+    </div>
+
+    <div class="form-grid">
+        <div class="form-field">
+            <label class="form-label" for="reg-cedula">Cédula</label>
+            <input class="form-input" id="reg-cedula" type="text" placeholder="Ej: 0102030405" autocomplete="off" />
+        </div>
+        <div class="form-field">
+            <label class="form-label">&nbsp;</label>
+            <button class="btn btn-primary" id="reg-buscar">
+                <i class="fas fa-search" style="margin-right:0.5rem;"></i>Buscar
+            </button>
+        </div>
+    </div>
+
+    <div id="reg-socio-info" class="helper-text" style="display:none;"></div>
+</div>
+
+<div class="grid-2">
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">Estado administrativo</h3>
+            <p class="card-subtitle">La verdad es <strong>unoric_regularizacion_estado</strong> (corte 2025-11-30).</p>
+        </div>
+
+        <div id="reg-estado-actual" class="helper-text">Busca un socio para ver su estado.</div>
+
+        <form id="reg-form-estado" class="form-grid" autocomplete="off">
+            <div class="form-field">
+                <label class="form-label" for="reg-hasta-fecha">Regularizado hasta</label>
+                <input class="form-input" id="reg-hasta-fecha" type="date" disabled />
+            </div>
+            <div class="form-field">
+                <label class="form-label" for="reg-observaciones">Observaciones</label>
+                <input class="form-input" id="reg-observaciones" type="text" placeholder="Notas" disabled />
+            </div>
+            <div class="form-field" style="grid-column: 1 / -1;">
+                <button class="btn btn-primary" id="reg-guardar-estado" type="submit" disabled>
+                    <i class="fas fa-save" style="margin-right:0.5rem;"></i>Guardar regularización
+                </button>
+                <div id="reg-estado-msg" class="helper-text" style="display:none;"></div>
+            </div>
+        </form>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">Registrar pago de regularización (opcional)</h3>
+            <p class="card-subtitle">Crea un pago tipo REGULARIZACION y su registro de dinero (no cambia el estado administrativo por sí solo).</p>
+        </div>
+
+        <form id="reg-form-pago" class="form-grid" autocomplete="off">
+            <div class="form-field">
+                <label class="form-label" for="reg-tipo">Tipo</label>
+                <select class="form-input" id="reg-tipo" disabled>
+                    <option value="">Selecciona...</option>
+                </select>
+            </div>
+            <div class="form-field">
+                <label class="form-label" for="reg-fecha-pago">Fecha pago</label>
+                <input class="form-input" id="reg-fecha-pago" type="date" disabled />
+            </div>
+            <div class="form-field">
+                <label class="form-label" for="reg-monto">Monto</label>
+                <input class="form-input" id="reg-monto" type="number" step="0.01" min="0" placeholder="0.00" disabled />
+            </div>
+            <div class="form-field">
+                <label class="form-label" for="reg-referencia">Referencia (opcional)</label>
+                <input class="form-input" id="reg-referencia" type="text" placeholder="Transferencia / recibo" disabled />
+            </div>
+            <div class="form-field" style="grid-column: 1 / -1;">
+                <label class="form-label" for="reg-descripcion">Descripción (opcional)</label>
+                <input class="form-input" id="reg-descripcion" type="text" placeholder="Ej: Regularización" disabled />
+            </div>
+            <div class="form-field" style="grid-column: 1 / -1;">
+                <button class="btn btn-primary" id="reg-registrar-pago" type="submit" disabled>
+                    <i class="fas fa-cash-register" style="margin-right:0.5rem;"></i>Registrar pago
+                </button>
+                <div id="reg-pago-msg" class="helper-text" style="display:none;"></div>
+            </div>
+        </form>
+    </div>
+</div>

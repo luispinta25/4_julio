@@ -1,0 +1,139 @@
+<div class="module-header">
+    <h2 class="module-title">Cobros</h2>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h3 class="card-title">Buscar socio</h3>
+        <p class="card-subtitle">Busca por cédula para ver obligaciones y registrar pagos.</p>
+    </div>
+
+    <div class="form-grid">
+        <div class="form-field">
+            <label class="form-label" for="cobros-cedula">Cédula</label>
+            <input class="form-input" id="cobros-cedula" type="text" placeholder="Ej: 0102030405" autocomplete="off" />
+        </div>
+        <div class="form-field">
+            <label class="form-label">&nbsp;</label>
+            <button class="btn btn-primary" id="cobros-buscar">
+                <i class="fas fa-search" style="margin-right:0.5rem;"></i>Buscar
+            </button>
+        </div>
+    </div>
+
+    <div id="cobros-socio-info" class="helper-text" style="display:none;"></div>
+</div>
+
+<div class="grid-2">
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">Obligaciones</h3>
+            <p class="card-subtitle">Selecciona una obligación para registrar un abono.</p>
+        </div>
+
+        <div class="filters-bar" style="margin-bottom: 1rem;">
+            <div class="search-wrapper">
+                <i class="fas fa-filter search-icon"></i>
+                <input type="text" id="cobros-search-obligaciones" class="search-input" placeholder="Filtrar por tipo o descripción..." disabled>
+            </div>
+        </div>
+
+        <div class="table-container">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Tipo</th>
+                        <th>Descripción</th>
+                        <th>Monto esperado</th>
+                        <th>Abonado</th>
+                        <th>Estado</th>
+                        <th>Acción</th>
+                    </tr>
+                </thead>
+                <tbody id="cobros-obligaciones-body">
+                    <tr>
+                        <td colspan="6" class="text-center p-4">Busca un socio para ver obligaciones</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">Registrar pago</h3>
+            <p class="card-subtitle">Registra dinero real en la obligación seleccionada.</p>
+        </div>
+
+        <div id="cobros-seleccion" class="helper-text">Selecciona una obligación en la tabla.</div>
+
+        <form id="cobros-form-pago" class="form-grid" autocomplete="off">
+            <div class="form-field">
+                <label class="form-label" for="cobros-pago-fecha">Fecha pago</label>
+                <input class="form-input" id="cobros-pago-fecha" type="date" />
+            </div>
+            <div class="form-field">
+                <label class="form-label" for="cobros-pago-monto">Monto</label>
+                <input class="form-input" id="cobros-pago-monto" type="number" step="0.01" min="0" placeholder="0.00" disabled />
+            </div>
+            <div class="form-field">
+                <label class="form-label" for="cobros-pago-referencia">Referencia (opcional)</label>
+                <input class="form-input" id="cobros-pago-referencia" type="text" placeholder="Transferencia / recibo" disabled />
+            </div>
+            <div class="form-field">
+                <label class="form-label" for="cobros-pago-observaciones">Observaciones (opcional)</label>
+                <input class="form-input" id="cobros-pago-observaciones" type="text" placeholder="Notas" disabled />
+            </div>
+            <div class="form-field" style="grid-column: 1 / -1;">
+                <button class="btn btn-primary" id="cobros-registrar" type="submit" disabled>
+                    <i class="fas fa-cash-register" style="margin-right:0.5rem;"></i>Registrar pago
+                </button>
+                <div id="cobros-pago-msg" class="helper-text" style="display:none;"></div>
+            </div>
+        </form>
+
+        <hr class="divider" />
+
+        <div class="card-header" style="padding:0; margin-bottom:0.75rem;">
+            <h3 class="card-title">Crear obligación (opcional)</h3>
+            <p class="card-subtitle">Crea una obligación en <strong>unoric_pagos</strong> y luego registra el pago.</p>
+        </div>
+
+        <form id="cobros-form-obligacion" class="form-grid" autocomplete="off">
+            <div class="form-field">
+                <label class="form-label" for="cobros-tipo">Tipo de pago</label>
+                <select class="form-input" id="cobros-tipo" disabled>
+                    <option value="">Selecciona...</option>
+                </select>
+            </div>
+            <div class="form-field">
+                <label class="form-label" for="cobros-lote">Lote (opcional)</label>
+                <select class="form-input" id="cobros-lote" disabled>
+                    <option value="">Sin lote</option>
+                </select>
+            </div>
+            <div class="form-field" style="grid-column: 1 / -1;">
+                <label class="form-label" for="cobros-descripcion">Descripción</label>
+                <input class="form-input" id="cobros-descripcion" type="text" placeholder="Ej: Mensualidad enero 2026" disabled />
+            </div>
+            <div class="form-field">
+                <label class="form-label" for="cobros-monto-esperado">Monto esperado</label>
+                <input class="form-input" id="cobros-monto-esperado" type="number" step="0.01" min="0" placeholder="0.00" disabled />
+            </div>
+            <div class="form-field">
+                <label class="form-label" for="cobros-periodo-desde">Periodo desde (opcional)</label>
+                <input class="form-input" id="cobros-periodo-desde" type="date" disabled />
+            </div>
+            <div class="form-field">
+                <label class="form-label" for="cobros-periodo-hasta">Periodo hasta (opcional)</label>
+                <input class="form-input" id="cobros-periodo-hasta" type="date" disabled />
+            </div>
+            <div class="form-field" style="grid-column: 1 / -1;">
+                <button class="btn btn-primary" id="cobros-crear-obligacion" type="submit" disabled>
+                    <i class="fas fa-plus" style="margin-right:0.5rem;"></i>Crear obligación
+                </button>
+                <div id="cobros-obligacion-msg" class="helper-text" style="display:none;"></div>
+            </div>
+        </form>
+    </div>
+</div>

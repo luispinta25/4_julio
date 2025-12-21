@@ -1,0 +1,179 @@
+<div class="dash-hero">
+  <div class="hero-content">
+    <h1 class="hero-title" id="dash-greeting">Bienvenido a UNORIC</h1>
+    <p class="hero-subtitle">Sistema de Gestión - Asociación 4 de Julio</p>
+  </div>
+  <div class="hero-decoration"></div>
+</div>
+
+<!-- Estadísticas principales -->
+<div class="stats-section">
+  <h2 class="section-title">
+    <i class="fas fa-chart-pie"></i>
+    Resumen General
+  </h2>
+
+  <div class="stats-grid-dashboard">
+    <!-- Socios -->
+    <div class="stat-card-lg stat-blue">
+      <div class="stat-card-icon">
+        <i class="fas fa-users"></i>
+      </div>
+      <div class="stat-card-content">
+        <span class="stat-card-value" id="dash-total-socios">--</span>
+        <span class="stat-card-label">Total Socios</span>
+      </div>
+      <div class="stat-card-footer">
+        <span class="stat-badge stat-badge-success" id="dash-socios-activos">-- activos</span>
+        <span class="stat-badge stat-badge-muted" id="dash-socios-retirados">-- retirados</span>
+      </div>
+    </div>
+
+    <!-- Lotes -->
+    <div class="stat-card-lg stat-pink">
+      <div class="stat-card-icon">
+        <i class="fas fa-map-marked-alt"></i>
+      </div>
+      <div class="stat-card-content">
+        <span class="stat-card-value" id="dash-total-lotes">--</span>
+        <span class="stat-card-label">Total Lotes</span>
+      </div>
+      <div class="stat-card-footer">
+        <span class="stat-badge stat-badge-info" id="dash-lotes-promesa">-- con promesa</span>
+      </div>
+    </div>
+
+    <!-- Etapa 1 -->
+    <div class="stat-card-sm etapa-verde">
+      <div class="stat-card-header">
+        <i class="fas fa-leaf"></i>
+        <span>Etapa 1</span>
+      </div>
+      <span class="stat-card-value-sm" id="dash-etapa1">--</span>
+      <span class="stat-card-label-sm">Verde</span>
+    </div>
+
+    <!-- Etapa 2 -->
+    <div class="stat-card-sm etapa-rojo">
+      <div class="stat-card-header">
+        <i class="fas fa-fire"></i>
+        <span>Etapa 2</span>
+      </div>
+      <span class="stat-card-value-sm" id="dash-etapa2">--</span>
+      <span class="stat-card-label-sm">Rojo</span>
+    </div>
+
+    <!-- Etapa 3 -->
+    <div class="stat-card-sm etapa-cafe">
+      <div class="stat-card-header">
+        <i class="fas fa-tree"></i>
+        <span>Etapa 3</span>
+      </div>
+      <span class="stat-card-value-sm" id="dash-etapa3">--</span>
+      <span class="stat-card-label-sm">Café</span>
+    </div>
+  </div>
+</div>
+
+<!-- Accesos rápidos -->
+<div class="quick-access-section">
+  <h2 class="section-title">
+    <i class="fas fa-bolt"></i>
+    Accesos Rápidos
+  </h2>
+
+  <div class="quick-access-grid" id="dash-grid">
+    <div class="quick-card" data-dash-item="mensualidad">
+      <div class="quick-card-icon icon-primary">
+        <i class="fas fa-calendar-check"></i>
+      </div>
+      <div class="quick-card-content">
+        <h3>Cobro Mensualidad</h3>
+        <p>Cobros por año con tarifa (USD)</p>
+      </div>
+      <button class="btn btn-primary" type="button" data-nav-to="mensualidad">
+        Abrir <i class="fas fa-arrow-right"></i>
+      </button>
+    </div>
+
+    <div class="quick-card" data-dash-item="socios">
+      <div class="quick-card-icon icon-green">
+        <i class="fas fa-users"></i>
+      </div>
+      <div class="quick-card-content">
+        <h3>Socios</h3>
+        <p>Gestión de socios y estados</p>
+      </div>
+      <button class="btn btn-secondary" type="button" data-nav-to="socios">
+        Abrir <i class="fas fa-arrow-right"></i>
+      </button>
+    </div>
+
+    <div class="quick-card" data-dash-item="lotes">
+      <div class="quick-card-icon icon-pink">
+        <i class="fas fa-map-marked-alt"></i>
+      </div>
+      <div class="quick-card-content">
+        <h3>Lotes</h3>
+        <p>Consulta lotes por socio y etapa</p>
+      </div>
+      <button class="btn btn-secondary" type="button" data-nav-to="lotes">
+        Abrir <i class="fas fa-arrow-right"></i>
+      </button>
+    </div>
+
+    <div class="quick-card" data-dash-item="cobros">
+      <div class="quick-card-icon icon-red">
+        <i class="fas fa-cash-register"></i>
+      </div>
+      <div class="quick-card-content">
+        <h3>Cobros</h3>
+        <p>Obligaciones y registro de pagos</p>
+      </div>
+      <button class="btn btn-secondary" type="button" data-nav-to="cobros">
+        Abrir <i class="fas fa-arrow-right"></i>
+      </button>
+    </div>
+
+    <div class="quick-card" data-dash-item="regularizacion">
+      <div class="quick-card-icon icon-gray">
+        <i class="fas fa-clipboard-check"></i>
+      </div>
+      <div class="quick-card-content">
+        <h3>Regularización</h3>
+        <p>Administración (solo ADMIN)</p>
+      </div>
+      <button class="btn btn-secondary" type="button" data-nav-to="regularizacion">
+        Abrir <i class="fas fa-arrow-right"></i>
+      </button>
+    </div>
+
+    <div class="quick-card" data-dash-item="tipos_pago">
+      <div class="quick-card-icon icon-gray">
+        <i class="fas fa-tags"></i>
+      </div>
+      <div class="quick-card-content">
+        <h3>Tipos de Pago</h3>
+        <p>Catálogo y tarifas por año</p>
+      </div>
+      <button class="btn btn-secondary" type="button" data-nav-to="tipos_pago">
+        Abrir <i class="fas fa-arrow-right"></i>
+      </button>
+    </div>
+
+    <div class="quick-card" data-dash-item="pdf">
+      <div class="quick-card-icon icon-primary">
+        <i class="fas fa-file-pdf"></i>
+      </div>
+      <div class="quick-card-content">
+        <h3>Generar PDF</h3>
+        <p>Reportes profesionales por filtros</p>
+      </div>
+      <button class="btn btn-primary" type="button" data-nav-to="pdf">
+        Abrir <i class="fas fa-arrow-right"></i>
+      </button>
+    </div>
+  </div>
+</div>
+
+<div id="dash-msg" class="helper-text" style="display:none;"></div>

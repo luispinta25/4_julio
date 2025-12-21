@@ -1,0 +1,40 @@
+/* Etapa Colors */
+.etapa-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.25rem 0.75rem;
+    border-radius: 0.5rem;
+    font-weight: 700;
+    color: white;
+    font-size: 0.85rem;
+    min-width: 80px;
+}
+
+.etapa-1 {
+    background-color: #10b981; /* Verde */
+}
+
+.etapa-2 {
+    background-color: #ef4444; /* Rojo */
+}
+
+.etapa-3 {
+    background-color: #8d6e63; /* Café (Brown-ish) */
+}
+
+.lote-number {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--text-color);
+}
+
+.promesa-si {
+    color: #10b981;
+    font-weight: 600;
+}
+
+.promesa-no {
+    color: #ef4444;
+    font-weight: 600;
+}
