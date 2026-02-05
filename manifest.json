@@ -1,0 +1,35 @@
+{
+  "name": "UNORIC - Sistema de Gestión",
+  "short_name": "UNORIC",
+  "description": "Sistema de gestión para la Asociación 4 de Julio",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#0230B9",
+  "theme_color": "#0230B9",
+  "icons": [
+    {
+      "src": "https://i.ibb.co/1tgLKr62/Gemini-Generated-Image-yqe70kyqe70kyqe7.webp",
+      "sizes": "192x192",
+      "type": "image/webp",
+      "purpose": "any"
+    },
+    {
+      "src": "https://i.ibb.co/1tgLKr62/Gemini-Generated-Image-yqe70kyqe70kyqe7.webp",
+      "sizes": "192x192",
+      "type": "image/webp",
+      "purpose": "maskable"
+    },
+    {
+      "src": "https://i.ibb.co/1tgLKr62/Gemini-Generated-Image-yqe70kyqe70kyqe7.webp",
+      "sizes": "512x512",
+      "type": "image/webp",
+      "purpose": "any"
+    },
+    {
+      "src": "https://i.ibb.co/1tgLKr62/Gemini-Generated-Image-yqe70kyqe70kyqe7.webp",
+      "sizes": "512x512",
+      "type": "image/webp",
+      "purpose": "maskable"
+    }
+  ]
+}

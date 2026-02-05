@@ -72,6 +72,16 @@
       <span class="stat-card-value-sm" id="dash-etapa3">--</span>
       <span class="stat-card-label-sm">Café</span>
     </div>
+
+    <!-- Convocatorias (New) -->
+    <div id="dash-eventos-card" class="stat-card-sm" style="background: rgba(2, 48, 185, 0.05); border: 1px solid rgba(2, 48, 185, 0.2); cursor: pointer; display: none;" onclick="loadView('convocatorias')">
+      <div class="stat-card-header" style="color: var(--primary-color);">
+        <i class="fas fa-bullhorn"></i>
+        <span>Eventos</span>
+      </div>
+      <span class="stat-card-value-sm" id="dash-eventos-activos" style="color: var(--primary-color);">0</span>
+      <span class="stat-card-label-sm">En Curso / Próximos</span>
+    </div>
   </div>
 </div>
 
@@ -83,20 +93,67 @@
   </h2>
 
   <div class="quick-access-grid" id="dash-grid">
-    <div class="quick-card" data-dash-item="mensualidad">
+    <div class="quick-card" data-dash-item="caja" style="cursor: pointer;">
+      <div class="quick-card-icon icon-red">
+        <i class="fas fa-cash-register"></i>
+      </div>
+      <div class="quick-card-content">
+        <h3>Caja</h3>
+        <p>Cobros unificados y creación de cuotas</p>
+      </div>
+    </div>
+
+    <div class="quick-card" data-dash-item="cobros" style="cursor: pointer;">
+      <div class="quick-card-icon icon-red">
+        <i class="fas fa-hand-holding-usd"></i>
+      </div>
+      <div class="quick-card-content">
+        <h3>Recaudaciones</h3>
+        <p>Registro y consulta de pagos generales</p>
+      </div>
+    </div>
+
+    <div class="quick-card" data-dash-item="mensualidad" style="cursor: pointer;">
       <div class="quick-card-icon icon-primary">
         <i class="fas fa-calendar-check"></i>
       </div>
       <div class="quick-card-content">
-        <h3>Cobro Mensualidad</h3>
-        <p>Cobros por año con tarifa (USD)</p>
+        <h3>Mensualidades</h3>
+        <p>Control de cuotas mensuales por socio</p>
       </div>
-      <button class="btn btn-primary" type="button" data-nav-to="mensualidad">
-        Abrir <i class="fas fa-arrow-right"></i>
-      </button>
     </div>
 
-    <div class="quick-card" data-dash-item="socios">
+    <div class="quick-card" data-dash-item="convocatorias" style="cursor: pointer;">
+      <div class="quick-card-icon icon-primary">
+        <i class="fas fa-tasks"></i>
+      </div>
+      <div class="quick-card-content">
+        <h3>Mingas y Asambleas</h3>
+        <p>Control de asistencia y multas por inasistencia</p>
+      </div>
+    </div>
+
+    <div class="quick-card" data-dash-item="crear_cuotas" style="cursor: pointer;">
+      <div class="quick-card-icon icon-gray">
+        <i class="fas fa-file-invoice-dollar"></i>
+      </div>
+      <div class="quick-card-content">
+        <h3>Generar cuotas</h3>
+        <p>Creación masiva de obligaciones</p>
+      </div>
+    </div>
+
+    <div class="quick-card" data-dash-item="pdf" style="cursor: pointer;">
+      <div class="quick-card-icon icon-primary">
+        <i class="fas fa-file-pdf"></i>
+      </div>
+      <div class="quick-card-content">
+        <h3>PDF</h3>
+        <p>Reportes profesionales y listados</p>
+      </div>
+    </div>
+
+    <div class="quick-card" data-dash-item="socios" style="cursor: pointer;">
       <div class="quick-card-icon icon-green">
         <i class="fas fa-users"></i>
       </div>
@@ -104,12 +161,9 @@
         <h3>Socios</h3>
         <p>Gestión de socios y estados</p>
       </div>
-      <button class="btn btn-secondary" type="button" data-nav-to="socios">
-        Abrir <i class="fas fa-arrow-right"></i>
-      </button>
     </div>
 
-    <div class="quick-card" data-dash-item="new_socio">
+    <div class="quick-card" data-dash-item="new_socio" style="cursor: pointer;">
       <div class="quick-card-icon icon-primary">
         <i class="fas fa-user-plus"></i>
       </div>
@@ -117,12 +171,9 @@
         <h3>Nuevo socio</h3>
         <p>Crear un socio (solo ADMIN)</p>
       </div>
-      <button class="btn btn-primary" type="button" data-action="new-socio">
-        Crear <i class="fas fa-arrow-right"></i>
-      </button>
     </div>
 
-    <div class="quick-card" data-dash-item="lotes">
+    <div class="quick-card" data-dash-item="lotes" style="cursor: pointer;">
       <div class="quick-card-icon icon-pink">
         <i class="fas fa-map-marked-alt"></i>
       </div>
@@ -130,61 +181,6 @@
         <h3>Lotes</h3>
         <p>Consulta lotes por socio y etapa</p>
       </div>
-      <button class="btn btn-secondary" type="button" data-nav-to="lotes">
-        Abrir <i class="fas fa-arrow-right"></i>
-      </button>
-    </div>
-
-    <div class="quick-card" data-dash-item="cobros">
-      <div class="quick-card-icon icon-red">
-        <i class="fas fa-cash-register"></i>
-      </div>
-      <div class="quick-card-content">
-        <h3>Cobros</h3>
-        <p>Obligaciones y registro de pagos</p>
-      </div>
-      <button class="btn btn-secondary" type="button" data-nav-to="cobros">
-        Abrir <i class="fas fa-arrow-right"></i>
-      </button>
-    </div>
-
-    <div class="quick-card" data-dash-item="regularizacion">
-      <div class="quick-card-icon icon-gray">
-        <i class="fas fa-clipboard-check"></i>
-      </div>
-      <div class="quick-card-content">
-        <h3>Regularización</h3>
-        <p>Administración (solo ADMIN)</p>
-      </div>
-      <button class="btn btn-secondary" type="button" data-nav-to="regularizacion">
-        Abrir <i class="fas fa-arrow-right"></i>
-      </button>
-    </div>
-
-    <div class="quick-card" data-dash-item="tipos_pago">
-      <div class="quick-card-icon icon-gray">
-        <i class="fas fa-tags"></i>
-      </div>
-      <div class="quick-card-content">
-        <h3>Tipos de Pago</h3>
-        <p>Catálogo y tarifas por año</p>
-      </div>
-      <button class="btn btn-secondary" type="button" data-nav-to="tipos_pago">
-        Abrir <i class="fas fa-arrow-right"></i>
-      </button>
-    </div>
-
-    <div class="quick-card" data-dash-item="pdf">
-      <div class="quick-card-icon icon-primary">
-        <i class="fas fa-file-pdf"></i>
-      </div>
-      <div class="quick-card-content">
-        <h3>Generar PDF</h3>
-        <p>Reportes profesionales por filtros</p>
-      </div>
-      <button class="btn btn-primary" type="button" data-nav-to="pdf">
-        Abrir <i class="fas fa-arrow-right"></i>
-      </button>
     </div>
   </div>
 </div>

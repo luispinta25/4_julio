@@ -1,0 +1,117 @@
+<div class="module-header">
+    <div style="display:flex; align-items:center; gap:1rem;">
+        <button class="btn btn-secondary btn-sm" id="cuotas-back-btn">
+            <i class="fas fa-arrow-left"></i> Volver a Caja
+        </button>
+        <h2 class="module-title">Generador de Cuotas Masivas</h2>
+    </div>
+</div>
+
+<div class="grid-2">
+    <!-- Columna 1: Configuración de la Cuota -->
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">1. Detalles de la Cuota</h3>
+            <p class="card-subtitle">Define el concepto y el monto para todos los seleccionados.</p>
+        </div>
+
+        <form id="cuotas-form-config" class="form-grid">
+            <div class="form-field" style="grid-column: 1 / -1;">
+                <label class="form-label">Tipo de Pago</label>
+                <select id="cuotas-tipo-pago" class="form-input" required>
+                    <option value="">Selecciona un tipo...</option>
+                </select>
+                <small class="text-muted">Determina la categoría contable del cobro.</small>
+            </div>
+
+            <div class="form-field" style="grid-column: 1 / -1;">
+                <label class="form-label">Concepto / Descripción</label>
+                <input id="cuotas-descripcion" class="form-input" type="text" placeholder="Ej: Cobro Inauguración 2019" required />
+            </div>
+
+            <div class="form-field">
+                <label class="form-label">Monto (USD)</label>
+                <input id="cuotas-monto" class="form-input" type="number" step="0.01" min="0.01" placeholder="0.00" required />
+            </div>
+
+            <div class="form-field">
+                <label class="form-label">Fecha de Emisión</label>
+                <input id="cuotas-fecha" class="form-input" type="date" required />
+            </div>
+        </form>
+    </div>
+
+    <!-- Columna 2: Filtros de Selección -->
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">2. Selección de Socios (Filtros)</h3>
+            <p class="card-subtitle">Aplica filtros para elegir a qué socios se les asignará la cuota.</p>
+        </div>
+
+        <div class="form-grid">
+            <div class="form-field">
+                <label class="form-label">Antigüedad (Año ingreso)</label>
+                <div style="display:flex; gap:0.5rem; align-items:center;">
+                    <input id="filter-desde-anio" class="form-input" type="number" placeholder="Desde" min="1900" max="2100" />
+                    <span>-</span>
+                    <input id="filter-hasta-anio" class="form-input" type="number" placeholder="Hasta" min="1900" max="2100" />
+                </div>
+            </div>
+
+            <div class="form-field">
+                <label class="form-label">Etapa</label>
+                <select id="filter-cuotas-etapa" class="form-input">
+                    <option value="all">Todas las etapas</option>
+                    <option value="1">Etapa 1 (Verde)</option>
+                    <option value="2">Etapa 2 (Rojo)</option>
+                    <option value="3">Etapa 3 (Café)</option>
+                </select>
+            </div>
+
+            <div class="form-field" style="grid-column: 1 / -1;">
+                <label class="form-label">Estado de Socio</label>
+                <div class="reports-checks">
+                    <label class="check-inline">
+                        <input id="filter-cuotas-solo-activos" type="checkbox" checked />
+                        <span>Solo socios activos</span>
+                    </label>
+                    <label class="check-inline">
+                        <input id="filter-cuotas-con-lote" type="checkbox" />
+                        <span>Solo socios con lote</span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="form-field" style="grid-column: 1 / -1; margin-top: 0.5rem;">
+                <button class="btn btn-primary w-full" id="cuotas-generar-btn" disabled style="height: 50px; font-size: 1.1rem;">
+                    <i class="fas fa-bolt"></i> Generar Pagos Masivos
+                </button>
+                <div id="cuotas-global-msg" class="helper-text text-center mt-2" style="display:none;"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Sección de Pagos Existentes -->
+<div class="card mt-4">
+    <div class="card-header">
+        <h3 class="card-title">Pagos/Cuotas Existentes por Año</h3>
+        <p class="card-subtitle">Consulta las cuotas ya generadas. Excluye Regularización y Mensualidades.</p>
+    </div>
+    <div style="padding: 0 1rem 1rem;">
+        <div id="pagos-existentes-btns" style="display:flex; gap:0.5rem; flex-wrap:wrap; margin-bottom:1rem;">
+            <button class="btn btn-outline btn-sm" data-anio="2019">2019</button>
+            <button class="btn btn-outline btn-sm" data-anio="2020">2020</button>
+            <button class="btn btn-outline btn-sm" data-anio="2021">2021</button>
+            <button class="btn btn-outline btn-sm" data-anio="2022">2022</button>
+            <button class="btn btn-outline btn-sm" data-anio="2023">2023</button>
+            <button class="btn btn-outline btn-sm" data-anio="2024">2024</button>
+            <button class="btn btn-outline btn-sm" data-anio="2025">2025</button>
+            <button class="btn btn-outline btn-sm" data-anio="2026">2026</button>
+        </div>
+        <p class="text-muted" id="pagos-existentes-count" style="margin-bottom:0.5rem;">Selecciona un año para ver los pagos generados.</p>
+        <div id="pagos-existentes-body" class="pagos-gallery" style="max-height: 400px; overflow-y: auto; display: flex; flex-wrap: wrap; gap: 0.75rem; padding: 0.5rem; justify-content: flex-start;">
+            <p class="text-center w-full p-4">Selecciona un año para ver los pagos generados.</p>
+        </div>
+    </div>
+</div>

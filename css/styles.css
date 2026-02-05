@@ -105,6 +105,17 @@ body {
     border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
+@media (max-width: 480px) {
+    .login-card {
+        padding: 1.5rem;
+    }
+    
+    .login-logo {
+        width: 80px;
+        height: 80px;
+    }
+}
+
 .login-logo {
     width: 100px;
     height: 100px;
@@ -216,6 +227,17 @@ body {
     background-color: var(--bg-color);
     color: var(--text-color);
     border: 1px solid var(--border-color);
+}
+
+.btn-outline {
+    background-color: transparent;
+    color: var(--primary-color);
+    border: 1px solid var(--primary-color);
+}
+
+.btn-outline:hover {
+    background-color: var(--primary-color);
+    color: white;
 }
 
 /* ==========================================
@@ -590,13 +612,35 @@ body {
 
 .main-content {
     flex: 1;
+    min-width: 0;
     overflow-y: auto;
+    overflow-x: hidden;
     padding: 2rem;
     background-color: var(--bg-color);
 }
 
 .module-header {
     margin-bottom: 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+@media (max-width: 640px) {
+    .module-header {
+        flex-direction: column;
+        align-items: flex-start;
+        margin-bottom: 1.5rem;
+    }
+    
+    .header-actions {
+        width: 100%;
+    }
+    
+    .header-actions .btn {
+        width: 100%;
+    }
 }
 
 .module-header-row {
@@ -672,13 +716,6 @@ body {
     transform: translateX(0);
 }
 
-/* Toggle button visibility based on sidebar state */
-.sidebar.open~.mobile-menu-toggle,
-.app-layout:has(.sidebar.open) .mobile-menu-toggle {
-    opacity: 0;
-    pointer-events: none;
-}
-
 /* Main content adjustments */
 .main-content {
     margin-left: 0;
@@ -709,6 +746,35 @@ body {
 .hidden {
     display: none !important;
 }
+
+/* Base Utilities */
+.grid { display: grid; }
+.grid-cols-1 { grid-template-columns: repeat(1, minmax(0, 1fr)); }
+.grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.grid-cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+
+.gap-2 { gap: 0.5rem; }
+.gap-4 { gap: 1rem; }
+.col-span-2 { grid-column: span 2 / span 2; }
+
+@media (max-width: 640px) {
+    .grid-cols-2, .grid-cols-3, .grid-cols-4 {
+        grid-template-columns: 1fr;
+    }
+    .col-span-2 {
+        grid-column: span 1 / span 1;
+    }
+}
+.mt-1 { margin-top: 0.25rem; }
+.mt-2 { margin-top: 0.5rem; }
+.mt-4 { margin-top: 1rem; }
+.mt-6 { margin-top: 1.5rem; }
+.text-xs { font-size: 0.75rem; }
+.text-sm { font-size: 0.875rem; }
+.text-muted { color: var(--text-muted); }
+.font-bold { font-weight: 700; }
+.cursor-pointer { cursor: pointer; }
 
 /* Global Loader */
 .app-loader {
@@ -823,6 +889,17 @@ body {
     display: flex;
     justify-content: flex-end;
     gap: 0.75rem;
+}
+
+@media (max-width: 640px) {
+    .modal-footer {
+        flex-direction: column-reverse;
+        gap: 0.5rem;
+    }
+    
+    .modal-footer .btn {
+        width: 100%;
+    }
 }
 
 .modal-section {
@@ -1267,4 +1344,62 @@ body {
 .stat-card-value,
 .stat-card-value-sm {
     animation: countUp 0.4s ease-out;
+}
+
+/* Dashboard Live Event Buttons */
+.live-event-btn {
+    position: fixed;
+    left: 1rem;
+    z-index: 60;
+    width: 42px;
+    height: 42px;
+    border-radius: var(--radius-lg);
+    border: none;
+    color: white;
+    box-shadow: var(--shadow-lg);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.1rem;
+    transition: all var(--transition-normal);
+}
+
+.live-event-btn:hover {
+    transform: scale(1.05);
+    filter: brightness(1.1);
+}
+
+.live-event-btn .live-dot {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    width: 9px;
+    height: 9px;
+    background-color: #ff3b3b;
+    border-radius: 50%;
+    border: 2px solid white;
+    animation: livePulse 1.5s infinite;
+}
+
+@keyframes livePulse {
+    0% { transform: scale(0.9); opacity: 0.8; }
+    50% { transform: scale(1.2); opacity: 1; }
+    100% { transform: scale(0.9); opacity: 0.8; }
+}
+
+.btn-blue { background: #0230B9; }
+.btn-red { background: #D83F3B; }
+.btn-green { background: #22c55e; }
+.btn-yellow { background: #f59e0b; }
+.btn-orange { background: #f97316; }
+.btn-black { background: #1a1a2e; }
+
+/* Ocultar botones cuando el sidebar está abierto (mismo comportamiento que Home) */
+.sidebar.open ~ .mobile-menu-toggle,
+.app-layout:has(.sidebar.open) .mobile-menu-toggle,
+.sidebar.open ~ #live-events-container .live-event-btn,
+.app-layout:has(.sidebar.open) .live-event-btn {
+    opacity: 0;
+    pointer-events: none;
 }

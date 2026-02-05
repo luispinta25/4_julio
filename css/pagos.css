@@ -98,7 +98,59 @@ small.text-muted {
 .helper-text {
     margin-top: 0.75rem;
     color: var(--text-muted);
-    font-size: 0.9rem;
+}
+
+/* Animaciones y Skeletor para Galería de Pagos */
+@keyframes fadeInStretch {
+    0% {
+        opacity: 0;
+        transform: scaleY(0.9) translateY(15px);
+    }
+    70% {
+        transform: scaleY(1.02) translateY(-2px);
+    }
+    100% {
+        opacity: 1;
+        transform: scaleY(1) translateY(0);
+    }
+}
+
+.animate-fade-in-stretch {
+    animation: fadeInStretch 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+.pagos-skeleton {
+    min-width: 170px;
+    height: 75px;
+    flex: 1 1 calc(25% - 0.75rem);
+    background: #f1f5f9;
+    border-radius: 0.75rem;
+    position: relative;
+    overflow: hidden;
+    border: 1px solid var(--border-color);
+}
+
+.pagos-skeleton::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(
+        90deg,
+        rgba(255, 255, 255, 0) 0,
+        rgba(255, 255, 255, 0.6) 50%,
+        rgba(255, 255, 255, 0) 100%
+    );
+    animation: shimmer 1.5s infinite;
+}
+
+@keyframes shimmer {
+    100% {
+        transform: translateX(100%);
+    }
 }
 
 .helper-text.success {

@@ -5,6 +5,10 @@ document.addEventListener('DOMContentLoaded', () => {
 // State
 let currentUser = null;
 let userProfile = null;
+let allSocios = [];
+let allLotes = [];
+let filteredSocios = [];
+let filteredLotes = [];
 
 // Constants
 const REGULARIZACION_CORTE_FECHA = '2025-11-30';
@@ -51,6 +55,70 @@ let currentViewName = null;
 
 // Loader state (re-entrant)
 let loaderCount = 0;
+
+/**
+ * Custom Confirmation Dialog
+ */
+function showConfirm(title, message) {
+    const modal = document.getElementById('confirm-modal');
+    const titleEl = document.getElementById('confirm-title');
+    const bodyEl = document.getElementById('confirm-body');
+    const btnYes = document.getElementById('confirm-btn-yes');
+    const btnNo = document.getElementById('confirm-btn-no');
+    const btnClose = document.getElementById('confirm-close');
+
+    titleEl.textContent = title;
+    bodyEl.innerHTML = message;
+    btnYes.style.display = '';
+    btnNo.textContent = 'No, cancelar';
+    btnYes.textContent = 'Sí, continuar';
+    
+    modal.classList.remove('hidden');
+
+    return new Promise((resolve) => {
+        const handleYes = () => { cleanup(); resolve(true); };
+        const handleNo = () => { cleanup(); resolve(false); };
+        const cleanup = () => {
+            modal.classList.add('hidden');
+            btnYes.removeEventListener('click', handleYes);
+            btnNo.removeEventListener('click', handleNo);
+            btnClose.removeEventListener('click', handleNo);
+        };
+        btnYes.addEventListener('click', handleYes);
+        btnNo.addEventListener('click', handleNo);
+        btnClose.addEventListener('click', handleNo);
+    });
+}
+
+/**
+ * Custom Alert Dialog
+ */
+function showAlert(title, message) {
+    const modal = document.getElementById('confirm-modal');
+    const titleEl = document.getElementById('confirm-title');
+    const bodyEl = document.getElementById('confirm-body');
+    const btnYes = document.getElementById('confirm-btn-yes');
+    const btnNo = document.getElementById('confirm-btn-no');
+    const btnClose = document.getElementById('confirm-close');
+
+    titleEl.textContent = title;
+    bodyEl.innerHTML = message;
+    btnYes.style.display = 'none';
+    btnNo.textContent = 'Aceptar';
+    
+    modal.classList.remove('hidden');
+
+    return new Promise((resolve) => {
+        const handleOk = () => {
+            modal.classList.add('hidden');
+            btnNo.removeEventListener('click', handleOk);
+            btnClose.removeEventListener('click', handleOk);
+            resolve();
+        };
+        btnNo.addEventListener('click', handleOk);
+        btnClose.addEventListener('click', handleOk);
+    });
+}
 
 // Initialization
 async function initApp() {
@@ -101,10 +169,19 @@ function setupEventListeners() {
         });
     }
 
+    const quickHomeBtn = document.getElementById('quick-home-btn');
+    if (quickHomeBtn) {
+        quickHomeBtn.addEventListener('click', () => {
+            setActiveNav('dashboard');
+            loadView('dashboard');
+        });
+    }
+
     // Close sidebar when clicking outside (tanto en mobile como desktop)
     document.addEventListener('click', (e) => {
         if (!sidebar.contains(e.target) &&
             !mobileMenuToggle.contains(e.target) &&
+            !quickHomeBtn?.contains(e.target) &&
             sidebar.classList.contains('open')) {
             sidebar.classList.remove('open');
         }
@@ -262,6 +339,7 @@ function showLogin() {
 function showApp() {
     loginView.classList.add('hidden');
     appLayout.classList.remove('hidden');
+    startLivePoller();
 }
 
 function updateUI() {
@@ -314,6 +392,28 @@ async function withLoader(message, fn) {
     }
 }
 
+/**
+ * Formatea una fecha (Date o 'YYYY-MM-DD') al formato largo: "DD de mes de YYYY"
+ */
+function formatDateLong(date) {
+    if (!date) return '';
+    let d = date;
+    if (typeof date === 'string') {
+        const parts = date.split('-');
+        if (parts.length !== 3) return date;
+        // Creamos la fecha usando componentes locales para evitar desfases de zona horaria
+        d = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+    } else if (!(date instanceof Date)) {
+        return String(date);
+    }
+    
+    const day = d.getDate();
+    const months = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+    const monthName = months[d.getMonth()];
+    const year = d.getFullYear();
+    return `${day} de ${monthName} de ${year}`;
+}
+
 // View Loader
 async function loadView(viewName) {
     try {
@@ -349,10 +449,16 @@ async function loadView(viewName) {
             await initSociosModule();
         } else if (viewName === 'lotes') {
             await initLotesModule();
+        } else if (viewName === 'caja') {
+            await initCajaModule();
+        } else if (viewName === 'crear_cuotas') {
+            await initCrearCuotasModule();
         } else if (viewName === 'cobros') {
             await initCobrosModule();
         } else if (viewName === 'mensualidad') {
             await initMensualidadModule();
+        } else if (viewName === 'convocatorias') {
+            await initConvocatoriasModule();
         } else if (viewName === 'regularizacion') {
             await initRegularizacionModule();
         } else if (viewName === 'tipos_pago') {
@@ -464,25 +570,32 @@ async function preloadAllData() {
         const client = getSupabaseClient();
 
         // Precargar socios
-        const { data: socios } = await client
+        const { data: socios, error: sociosError } = await client
             .from('unoric_socios')
-            .select('cedula, socio, estado, celular, correo')
+            .select('*')
             .order('socio', { ascending: true });
 
-        if (socios && socios.length) {
-            writeSociosQuickCache(socios);
-        }
+        if (sociosError) throw sociosError;
 
         // Precargar lotes
-        const { data: lotes } = await client
+        const { data: lotes, error: lotesError } = await client
             .from('unoric_lotes')
             .select('*');
 
-        if (lotes && lotes.length) {
-            writeLotesCache(lotes);
-        }
+        if (lotesError) throw lotesError;
 
-        console.log('Precarga completada: socios y lotes cacheados.');
+        // Guardar en memoria global
+        allLotes = lotes || [];
+        allSocios = (socios || []).map(s => ({
+            ...s,
+            lotes: allLotes.filter(l => l.socio === s.cedula)
+        }));
+
+        // Cache persistente (ligero)
+        writeSociosQuickCache(allSocios);
+        writeLotesCache(allLotes);
+
+        console.log(`Precarga completada: ${allSocios.length} socios y ${allLotes.length} lotes cacheados.`);
     } catch (err) {
         console.warn('Error en precarga de datos:', err);
     }
@@ -551,7 +664,9 @@ function renderDashboardStats(stats) {
         lotesPromesa: document.getElementById('dash-lotes-promesa'),
         etapa1: document.getElementById('dash-etapa1'),
         etapa2: document.getElementById('dash-etapa2'),
-        etapa3: document.getElementById('dash-etapa3')
+        etapa3: document.getElementById('dash-etapa3'),
+        eventosCard: document.getElementById('dash-eventos-card'),
+        eventosActivosCount: document.getElementById('dash-eventos-activos')
     };
 
     if (els.totalSocios) els.totalSocios.textContent = stats.totalSocios ?? '--';
@@ -562,6 +677,13 @@ function renderDashboardStats(stats) {
     if (els.etapa1) els.etapa1.textContent = stats.etapa1 ?? '--';
     if (els.etapa2) els.etapa2.textContent = stats.etapa2 ?? '--';
     if (els.etapa3) els.etapa3.textContent = stats.etapa3 ?? '--';
+
+    if (els.eventosActivosCount) {
+        els.eventosActivosCount.textContent = stats.eventosActivos ?? '0';
+        if (els.eventosCard) {
+            els.eventosCard.style.display = (stats.eventosActivos > 0) ? 'flex' : 'none';
+        }
+    }
 }
 
 // Obtener estadísticas desde Supabase
@@ -581,6 +703,33 @@ async function fetchDashboardStats() {
         .select('*');
 
     if (lotesErr) throw lotesErr;
+
+    // Fetch eventos activos (Solo próximos en < 50 min o En curso)
+    let eventosActivos = 0;
+    try {
+        const { data: eventos, error: evErr } = await client
+            .from('unoric_eventos')
+            .select('*')
+            .not('estado', 'in', '("FINALIZADO","CANCELADO")');
+        
+        if (!evErr && eventos) {
+            const now = new Date();
+            const filtered = eventos.filter(ev => {
+                const [y, mm, d] = ev.fecha.split('-').map(Number);
+                const [hh, min] = ev.hora_inicio.split(':').map(Number);
+                const eventDateTime = new Date(y, mm - 1, d, hh, min);
+                
+                const diffMs = eventDateTime - now;
+                const diffMin = diffMs / (1000 * 60);
+                
+                // En curso (ya empezó) o Iniciando pronto (<= 50 min)
+                return (now >= eventDateTime) || (diffMin > 0 && diffMin <= 50);
+            });
+            eventosActivos = filtered.length;
+        }
+    } catch (e) {
+        console.warn('Error fetching event count:', e);
+    }
 
     // Guardar lotes en cache para uso posterior
     writeLotesCache(lotes);
@@ -604,7 +753,8 @@ async function fetchDashboardStats() {
         lotesPromesa,
         etapa1,
         etapa2,
-        etapa3
+        etapa3,
+        eventosActivos
     };
 }
 
@@ -632,7 +782,8 @@ async function initDashboardModule() {
         const v = String(view || '').trim();
         if (!v) return false;
         if (v === 'dashboard' || v === 'pdf') return true;
-        if (v === 'new_socio') return isAdmin();
+        if (v === 'new_socio' || v === 'crear_cuotas') return isAdmin();
+        
         const requiresAdmin = v === 'regularizacion' || v === 'tipos_pago';
         return userHasModule(v) && (!requiresAdmin || isAdmin());
     }
@@ -641,33 +792,29 @@ async function initDashboardModule() {
     grid.querySelectorAll('[data-dash-item]').forEach(card => {
         const v = card.getAttribute('data-dash-item');
         card.style.display = allowedFor(v) ? '' : 'none';
-    });
 
-    // Bind navigation buttons
-    grid.querySelectorAll('button[data-nav-to]').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const to = btn.getAttribute('data-nav-to');
-            if (!allowedFor(to)) {
-                setInlineMessage(msgEl, 'No tienes acceso a este módulo.', 'error');
-                return;
-            }
-            setInlineMessage(msgEl, '', '');
-            setActiveNav(to);
-            loadView(to);
-        });
-    });
+        // Hacer toda la tarjeta cliqueable
+        card.addEventListener('click', async (e) => {
+            const to = card.getAttribute('data-dash-item');
 
-    // Bind dashboard actions
-    grid.querySelectorAll('button[data-action="new-socio"]').forEach(btn => {
-        btn.addEventListener('click', async () => {
-            if (!isAdmin()) {
-                setInlineMessage(msgEl, 'Acceso restringido: solo ADMIN puede crear socios.', 'error');
-                return;
+            if (to === 'new_socio') {
+                if (!isAdmin()) {
+                    setInlineMessage(msgEl, 'Acceso restringido: solo ADMIN puede crear socios.', 'error');
+                    return;
+                }
+                setInlineMessage(msgEl, '', '');
+                setActiveNav('socios');
+                await loadView('socios');
+                openSocioCreateModal();
+            } else {
+                if (!allowedFor(to)) {
+                    setInlineMessage(msgEl, 'No tienes acceso a este módulo.', 'error');
+                    return;
+                }
+                setInlineMessage(msgEl, '', '');
+                setActiveNav(to);
+                loadView(to);
             }
-            setInlineMessage(msgEl, '', '');
-            setActiveNav('socios');
-            await loadView('socios');
-            openSocioCreateModal();
         });
     });
 
@@ -700,7 +847,73 @@ async function initDashboardModule() {
 // DASHBOARD - REPORTES PDF
 // ==========================================
 
-const DASH_PDF_LOGO_URL = 'https://i.ibb.co/1tgLKr62/Gemini-Generated-Image-yqe70kyqe70kyqe7.webp';
+const DASH_PDF_LOGO_URL = 'https://i.ibb.co/rRLTLtty/Gemini-Generated-Image-yqe70kyqe70kyqe7.png';
+
+/**
+ * Lógica para botones de eventos en vivo ("EN CURSO")
+ */
+let livePollInterval = null;
+
+async function updateLiveEventButtons() {
+    const container = document.getElementById('live-events-container');
+    if (!container) return;
+
+    try {
+        const client = getSupabaseClient();
+        const { data: eventos, error } = await client
+            .from('unoric_eventos')
+            .select('*')
+            .not('estado', 'in', '("FINALIZADO","CANCELADO")');
+
+        if (error) throw error;
+
+        const now = new Date();
+        const enCurso = (eventos || []).filter(ev => {
+            const eventDateTime = new Date(`${ev.fecha}T${ev.hora_inicio}`);
+            return now >= eventDateTime;
+        });
+
+        if (enCurso.length === 0) {
+            container.innerHTML = '';
+        } else {
+            container.innerHTML = enCurso.map((ev, idx) => {
+                const colors = ['blue', 'red', 'green', 'yellow', 'orange', 'black'];
+                const color = colors[idx % colors.length];
+                const topOffset = 4.25 + ((idx + 1) * 3.25); // Espaciado consistente con Hamburger (1rem) y Home (4.25rem)
+                return `
+                    <button class="live-event-btn btn-${color}" 
+                            style="top: ${topOffset}rem;" 
+                            title="EN VIVO: ${ev.tipo} - ${ev.descripcion}"
+                            onclick="goToLiveEvent('${ev.id}')">
+                        <i class="fas fa-bullhorn rotate-bullhorn"></i>
+                        <div class="live-dot"></div>
+                    </button>
+                `;
+            }).join('');
+        }
+
+        // Si estamos en la vista de convocatorias, refrescar el listado también
+        if (typeof window.refreshConvocatorias === 'function') {
+            await window.refreshConvocatorias();
+        }
+
+    } catch (e) {
+        console.error('Error actualizando botones live:', e);
+    }
+}
+
+// Ventana global para abrir eventos desde el botón lateral
+window.goToLiveEvent = async function(eventoId) {
+    window.autoOpenEventoId = eventoId;
+    setActiveNav('convocatorias');
+    await loadView('convocatorias');
+};
+
+function startLivePoller() {
+    if (livePollInterval) clearInterval(livePollInterval);
+    updateLiveEventButtons();
+    livePollInterval = setInterval(updateLiveEventButtons, 60000); // Cada minuto
+}
 
 function initDashboardPdfModule() {
     const generateBtn = document.getElementById('dash-pdf-socios-generate');
@@ -851,22 +1064,43 @@ async function fetchPendientesPorSocios(cedulas) {
     if (unique.length === 0) return new Map();
 
     async function queryView() {
-        const { data, error } = await client
-            .from('vw_pagos_por_socio')
-            .select('cedula_socio, monto_esperado, monto_abonado, estado_calculado, estado')
-            .in('cedula_socio', unique);
-        if (error) throw error;
-        return data || [];
+        // Dividir en fragmentos de 100 para evitar URL demasiado larga (Error 400/414)
+        const chunks = [];
+        for (let i = 0; i < unique.length; i += 100) {
+            chunks.push(unique.slice(i, i + 100));
+        }
+
+        let allData = [];
+        for (const chunk of chunks) {
+            const { data, error } = await client
+                .from('vw_pagos_por_socio')
+                .select('cedula_socio, monto_esperado, monto_abonado, estado_calculado, estado')
+                .in('cedula_socio', chunk);
+            
+            if (error) throw error;
+            if (data) allData = allData.concat(data);
+        }
+        return allData;
     }
 
     async function queryBase() {
-        const { data, error } = await client
-            .from('unoric_pagos')
-            .select('cedula_socio, monto_esperado, estado')
-            .in('cedula_socio', unique);
-        if (error) throw error;
-        // Base table doesn't have monto_abonado; treat unpaid as full monto_esperado
-        return (data || []).map(r => ({
+        const chunks = [];
+        for (let i = 0; i < unique.length; i += 100) {
+            chunks.push(unique.slice(i, i + 100));
+        }
+
+        let allData = [];
+        for (const chunk of chunks) {
+            const { data, error } = await client
+                .from('unoric_pagos')
+                .select('cedula_socio, monto_esperado, estado')
+                .in('cedula_socio', chunk);
+            
+            if (error) throw error;
+            if (data) allData = allData.concat(data);
+        }
+        
+        return allData.map(r => ({
             cedula_socio: r.cedula_socio,
             monto_esperado: r.monto_esperado,
             monto_abonado: 0,
@@ -878,7 +1112,8 @@ async function fetchPendientesPorSocios(cedulas) {
     let rows = [];
     try {
         rows = await queryView();
-    } catch (_) {
+    } catch (e) {
+        console.warn('Fallback to queryBase due to view error:', e);
         rows = await queryBase();
     }
 
@@ -1218,7 +1453,7 @@ function getCustomColumnsDefinitions(pendientesMap) {
 function getPdfHeaderFromUi() {
     const titleEl = document.getElementById('pdf-header-title');
     const subtitleEl = document.getElementById('pdf-header-subtitle');
-    const title = String(titleEl?.value || '').trim() || 'UNORIC - Reporte de Socios';
+    const title = String(titleEl?.value || '').trim() || "UNORIC R.Q.E - '4 DE JULIO'";
     const subtitle = String(subtitleEl?.value || '').trim();
     return { title, subtitle };
 }
@@ -1371,7 +1606,7 @@ async function generateSociosPdfFromDashboard() {
 
             const primary = getPrimaryRgb();
             const now = new Date();
-            const genDate = `${String(now.getDate()).padStart(2, '0')}/${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()}`;
+            const genDate = formatDateLong(now);
 
             const { title: pdfTitle, subtitle: pdfSubtitle } = getPdfHeaderFromUi();
 
@@ -1657,7 +1892,8 @@ function writeSociosQuickCache(socios) {
             socios: (socios || []).map(s => ({
                 cedula: s.cedula,
                 socio: s.socio,
-                estado: s.estado
+                estado: s.estado,
+                socio_desde: s.socio_desde
             }))
         };
         localStorage.setItem(SOCIOS_CACHE_KEY, JSON.stringify(payload));
@@ -1682,7 +1918,12 @@ function readSociosQuickCache() {
 function getSociosQuickList() {
     // Prefer in-memory cache from Socios module
     if (Array.isArray(allSocios) && allSocios.length > 0) {
-        return allSocios.map(s => ({ cedula: s.cedula, socio: s.socio, estado: s.estado }));
+        return allSocios.map(s => ({ 
+            cedula: s.cedula, 
+            socio: s.socio, 
+            estado: s.estado,
+            socio_desde: s.socio_desde 
+        }));
     }
     // Fallback: localStorage
     const cached = readSociosQuickCache();
@@ -2065,6 +2306,130 @@ async function fetchPagosPorSocio(cedula) {
 }
 
 // ==========================================
+// SHARED MENSUALIDADES CALCULATION
+// ==========================================
+// Fallback if no rate is found in unoric_tipos_pago_tarifas
+const DEFAULT_MENSUALIDAD_USD_POR_LOTE = 5; 
+const MONTHS_ES = [
+    'ENERO', 'FEBRERO', 'MARZO', 'ABRIL', 'MAYO', 'JUNIO',
+    'JULIO', 'AGOSTO', 'SEPTIEMBRE', 'OCTUBRE', 'NOVIEMBRE', 'DICIEMBRE'
+];
+
+function monthNameES(month) {
+    const m = Number(month);
+    if (!m || m < 1 || m > 12) return '';
+    return MONTHS_ES[m - 1];
+}
+
+function computeFeeForYear(year, tarifasMap, baseMonto) {
+    const y = Number(year);
+    if (tarifasMap && tarifasMap.has(y)) return tarifasMap.get(y);
+    return baseMonto || DEFAULT_MENSUALIDAD_USD_POR_LOTE;
+}
+
+function computeAmountForYearItem(item, hastaMes, loteCount) {
+    const lc = Number(loteCount || 0);
+    const fee = item.feePerLote || DEFAULT_MENSUALIDAD_USD_POR_LOTE;
+    const fromMonth = Number(item.paidThroughMonth || 0);
+    const toMonth = Number(hastaMes || 0);
+    const monthsToPay = Math.max(0, toMonth - fromMonth);
+    return monthsToPay * fee * lc;
+}
+
+function buildMensualidadItems(pagosBase, loteCount, tarifasMap, baseMonto, socioDesde = null, regularizacion = null) {
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    let minYear = currentYear;
+
+    // Extraer año de socioDesde (puede ser YYYY o YYYY-MM-DD)
+    if (socioDesde) {
+        const s = String(socioDesde).trim();
+        if (s.length >= 4) {
+            const y = Number(s.slice(0, 4));
+            if (!isNaN(y) && y > 1900 && y <= currentYear) {
+                minYear = y;
+            }
+        }
+    }
+
+    const regAnio = Number(regularizacion?.anio || 0);
+    const regFechaPartes = parseISODateParts(regularizacion?.fecha);
+    const regMes = regFechaPartes?.month || 0;
+
+    const bestByYear = new Map();
+    (pagosBase || []).forEach(p => {
+        const from = parseISODateParts(p.periodo_desde);
+        const to = parseISODateParts(p.periodo_hasta);
+        const y = from?.year || to?.year;
+        if (!y) return;
+        if (y < minYear) minYear = y;
+
+        const hastaISO = String(p.periodo_hasta || '');
+        const hastaMonth = to?.month || 0;
+        const estado = normalizePagoEstado(p.estado) || 'PENDIENTE';
+        const prev = bestByYear.get(y);
+
+        if (!prev || (hastaMonth > prev.hastaMonth)) {
+            bestByYear.set(y, {
+                id: p.id,
+                estado,
+                hastaMonth,
+                hastaISO,
+                monto: p.monto_esperado,
+                monto_abonado: p.monto_abonado || 0
+            });
+        }
+    });
+
+    const items = [];
+    for (let y = minYear; y <= currentYear; y++) {
+        const best = bestByYear.get(y);
+        const feePerLote = computeFeeForYear(y, tarifasMap, baseMonto);
+        
+        let startMonth = best ? best.hastaMonth : 0;
+        let isRegularizado = false;
+
+        // Integrar datos de migración/regularización
+        if (y < regAnio) {
+            startMonth = 12;
+            isRegularizado = true;
+        } else if (y === regAnio) {
+            if (regMes > startMonth) {
+                startMonth = regMes;
+                isRegularizado = true;
+            }
+        }
+        
+        if (startMonth === 12) {
+            items.push({
+                key: `pagado-${y}`,
+                kind: 'pagado',
+                year: y,
+                detail: isRegularizado ? 'Regularizado (Migración)' : 'Año pagado completo',
+                pendienteMonto: 0,
+                pendienteDisplay: 'PAGADO',
+                feePerLote
+            });
+        } else {
+            const mesesPendientes = 12 - startMonth;
+            const montoTotal = mesesPendientes * feePerLote * (loteCount || 0);
+            items.push({
+                key: `pendiente-${y}`,
+                kind: 'pendiente',
+                year: y,
+                detail: startMonth === 0 ? 'Sin pagos registrados' : (isRegularizado ? `Migrado hasta ${monthNameES(startMonth)}` : `Pagado hasta ${monthNameES(startMonth)}`),
+                pendienteMonto: montoTotal,
+                feePerLote,
+                paidThroughMonth: startMonth,
+                existingId: best?.id,
+                monto_abonado: best?.monto_abonado || 0
+            });
+        }
+    }
+    return items.sort((a, b) => b.year - a.year);
+}
+
+// ==========================================
 // COBROS MODULE
 // ==========================================
 let cobrosState = {
@@ -2079,322 +2444,533 @@ let cobrosState = {
 async function initCobrosModule() {
     const cedulaInput = document.getElementById('cobros-cedula');
     const buscarBtn = document.getElementById('cobros-buscar');
+    const clearBtn = document.getElementById('cobros-clear');
+    const backBtn = document.getElementById('cobros-back-btn');
     const socioInfo = document.getElementById('cobros-socio-info');
-    const obligacionesBody = document.getElementById('cobros-obligaciones-body');
-    const searchObligaciones = document.getElementById('cobros-search-obligaciones');
+    const localResults = document.getElementById('cobros-local-results');
+    
+    // Dashboard
+    const dashboard = document.getElementById('cobros-dashboard');
+    const statLotes = document.getElementById('cobros-stat-lotes');
+    const statPendiente = document.getElementById('cobros-stat-pendiente');
 
+    // Deudas
+    const mensualidadesBody = document.getElementById('cobros-mensualidades-body');
+    const otrosBody = document.getElementById('cobros-otros-body');
+
+    // Formulario Pago
     const seleccionInfo = document.getElementById('cobros-seleccion');
     const pagoForm = document.getElementById('cobros-form-pago');
+    const fieldHastaMes = document.getElementById('field-hasta-mes');
+    const hastaMesSelect = document.getElementById('cobros-hasta-mes');
     const pagoFecha = document.getElementById('cobros-pago-fecha');
     const pagoMonto = document.getElementById('cobros-pago-monto');
     const pagoReferencia = document.getElementById('cobros-pago-referencia');
     const pagoObservaciones = document.getElementById('cobros-pago-observaciones');
     const pagoSubmit = document.getElementById('cobros-registrar');
     const pagoMsg = document.getElementById('cobros-pago-msg');
+    const modalRecaudacion = document.getElementById('modal-recaudacion');
+    const closeModalRecaudacion = document.getElementById('close-modal-recaudacion');
+    const btnCancelarPago = document.getElementById('btn-cancelar-pago');
+    const displayTotalPago = document.getElementById('display-total-pago');
 
-    const obligForm = document.getElementById('cobros-form-obligacion');
-    const tipoSelect = document.getElementById('cobros-tipo');
-    const loteSelect = document.getElementById('cobros-lote');
-    const descInput = document.getElementById('cobros-descripcion');
-    const montoEsperado = document.getElementById('cobros-monto-esperado');
-    const periodoDesde = document.getElementById('cobros-periodo-desde');
-    const periodoHasta = document.getElementById('cobros-periodo-hasta');
-    const obligSubmit = document.getElementById('cobros-crear-obligacion');
-    const obligMsg = document.getElementById('cobros-obligacion-msg');
+    // Admin stuff
+    const btnCrearManual = document.getElementById('cobros-btn-crear-manual');
+    const modalManual = document.getElementById('modal-cargo-manual');
+    const adminSection = document.getElementById('cobros-admin-only');
+    const manualUnitario = document.getElementById('manual-unitario');
+    const manualTotalPreview = document.getElementById('manual-preview-total');
+
+    if (adminSection && isAdmin()) {
+        adminSection.classList.remove('hidden');
+    }
 
     pagoFecha.value = todayISODate();
 
-    function resetSelection() {
-        cobrosState.selectedPago = null;
-        seleccionInfo.textContent = 'Selecciona una obligación en la tabla.';
-        [pagoMonto, pagoReferencia, pagoObservaciones, pagoSubmit].forEach(el => el.disabled = true);
+    let state = {
+        socio: null,
+        loteCount: 0,
+        mensualidadTipoId: null,
+        mensualidadTarifas: new Map(),
+        mensualidadItems: [],
+        otrasObligaciones: [],
+        selection: null // { kind: 'mens'|'otro', item: obj }
+    };
+
+    if (backBtn) {
+        backBtn.addEventListener('click', () => {
+            loadView('caja');
+        });
+    }
+
+    if (clearBtn) {
+        clearBtn.addEventListener('click', () => {
+            cedulaInput.value = '';
+            localResults.innerHTML = '';
+            resetView();
+        });
+    }
+
+    function renderLocalMatches(matches) {
+        if (!matches || matches.length === 0) {
+            localResults.innerHTML = '';
+            return;
+        }
+        const top = matches.slice(0, 12);
+        localResults.innerHTML = `
+            <div class="mt-4" style="background: var(--bg-color); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 1.5rem; box-shadow: var(--shadow-sm);">
+                <div class="text-muted text-xs font-bold uppercase mb-4 px-1" style="letter-spacing: 0.05em; display: flex; align-items: center; gap: 8px;">
+                    <i class="fas fa-search text-primary" style="font-size: 0.8rem;"></i>
+                    Coincidencias encontradas (${matches.length}):
+                </div>
+                <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; width: 100%;">
+                    ${top.map(s => {
+                        const activo = isSocioActivoValue(s.estado);
+                        const desde = s.socio_desde ? `<div class="text-xs text-muted mt-2" style="background: rgba(0,0,0,0.03); padding: 4px 8px; border-radius: 4px; display: inline-block;"><i class="far fa-calendar-alt mr-1"></i> Socio desde: <strong>${s.socio_desde}</strong></div>` : '';
+                        return `
+                            <button type="button" class="btn btn-secondary btn-sm" style="display:block; text-align: left; background: var(--card-bg); padding: 1.5rem; border: 1px solid var(--border-color); transition: all 0.2s; height: auto; width: 100%; box-shadow: var(--shadow-sm); position: relative; overflow: hidden;" data-cedula="${s.cedula}">
+                                <div style="display:flex; justify-content: space-between; align-items: flex-start;">
+                                    <div style="flex: 1; padding-right: 12px;">
+                                        <div style="font-weight: 800; color: var(--primary-color); line-height: 1.3; font-size: 1rem; text-transform: uppercase; margin-bottom: 4px;">${s.socio || ''}</div>
+                                        <div class="text-sm font-medium text-muted" style="display:flex; align-items:center; gap: 6px;">
+                                            <i class="fas fa-id-card" style="font-size: 0.8rem; opacity: 0.5;"></i> 
+                                            ${s.cedula}
+                                        </div>
+                                    </div>
+                                    ${!activo ? '<span class="badge badge-danger" style="font-size: 0.65rem; padding: 4px 8px; border-radius: 4px;">Retirado</span>' : '<i class="fas fa-chevron-right text-muted" style="font-size: 0.8rem; opacity: 0.5;"></i>'}
+                                </div>
+                                ${desde}
+                                <div style="position: absolute; bottom: 0; left: 0; right: 0; height: 3px; background: ${activo ? 'var(--primary-color)' : '#ef4444'}; opacity: 0.1;"></div>
+                            </button>
+                        `;
+                    }).join('')}
+                </div>
+            </div>
+        `;
+
+        localResults.querySelectorAll('button[data-cedula]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                cedulaInput.value = btn.getAttribute('data-cedula');
+                localResults.innerHTML = '';
+                loadSocioAndData();
+            });
+        });
+    }
+
+    cedulaInput.addEventListener('input', () => {
+        const query = cedulaInput.value.trim();
+        if (query.length < 2) {
+            localResults.innerHTML = '';
+            return;
+        }
+        const list = getSociosQuickList();
+        const qn = normalizeText(query);
+        const matches = list.filter(s => {
+            const name = normalizeText(s.socio);
+            const ced = normalizeText(s.cedula);
+            return name.includes(qn) || ced.includes(qn);
+        });
+        renderLocalMatches(matches);
+    });
+
+    function resetView() {
+        if (socioInfo) socioInfo.style.display = 'none';
+        if (dashboard) dashboard.style.display = 'none';
+        mensualidadesBody.innerHTML = '<tr><td colspan="5" class="text-center p-4">Consulta un socio para ver mensualidades</td></tr>';
+        otrosBody.innerHTML = '<tr><td colspan="4" class="text-center p-4">Consulta un socio para ver cargos</td></tr>';
+        resetForm();
+    }
+
+    function resetForm() {
+        state.selection = null;
+        if (modalRecaudacion) modalRecaudacion.classList.add('hidden');
+        if (displayTotalPago) displayTotalPago.textContent = '$0.00';
+        
+        seleccionInfo.innerHTML = '<i class="fas fa-info-circle"></i> Selecciona una deuda arriba para procesar.';
+        fieldHastaMes.style.display = 'none';
+        pagoMonto.value = '';
+        pagoReferencia.value = '';
+        pagoObservaciones.value = '';
         setInlineMessage(pagoMsg, '', '');
     }
 
-    function setCreateEnabled(enabled) {
-        [tipoSelect, loteSelect, descInput, montoEsperado, periodoDesde, periodoHasta, obligSubmit].forEach(el => {
-            el.disabled = !enabled;
-        });
-        setInlineMessage(obligMsg, '', '');
+    if (closeModalRecaudacion) {
+        closeModalRecaudacion.addEventListener('click', () => modalRecaudacion.classList.add('hidden'));
+    }
+    if (btnCancelarPago) {
+        btnCancelarPago.addEventListener('click', () => modalRecaudacion.classList.add('hidden'));
     }
 
-    function applySocioActivoGates() {
-        if (cobrosState.socio && !cobrosState.socioActivo) {
-            resetSelection();
-            setCreateEnabled(false);
-            setInlineMessage(obligMsg, 'Socio retirado: no se pueden crear obligaciones.', 'error');
-            setInlineMessage(pagoMsg, 'Socio retirado: no se pueden registrar pagos/cobros.', 'error');
-        }
+    function updateDashboard() {
+        if (!dashboard) return;
+        dashboard.style.display = 'grid';
+        statLotes.textContent = String(state.loteCount || 0);
+        const lc = Number(state.loteCount || 0);
+        
+        const pentMens = (state.mensualidadItems || [])
+            .filter(it => it.kind === 'pendiente')
+            .reduce((acc, it) => acc + Number(it.pendienteMonto || 0), 0);
+            
+        const pentOtros = (state.otrasObligaciones || [])
+            .reduce((acc, it) => acc + ((Number(it.monto_esperado) * lc) - Number(it.monto_abonado || 0)), 0);
+
+        statPendiente.textContent = `$${formatMoney(pentMens + pentOtros)}`;
     }
 
-    function setObligacionesFilterEnabled(enabled) {
-        searchObligaciones.disabled = !enabled;
-        if (!enabled) searchObligaciones.value = '';
-    }
-
-    function renderObligaciones(list) {
-        if (!list || list.length === 0) {
-            obligacionesBody.innerHTML = `<tr><td colspan="6" class="text-center p-4">No hay obligaciones para este socio</td></tr>`;
+    function renderMensualidades() {
+        const items = state.mensualidadItems || [];
+        if (items.length === 0) {
+            mensualidadesBody.innerHTML = '<tr><td colspan="5" class="text-center p-4">No se detectaron mensualidades pendientes.</td></tr>';
             return;
         }
 
-        const display = list.slice(0, 200);
-        obligacionesBody.innerHTML = display.map(p => {
-            const tipo = p.tipo_codigo || p.tipo_descripcion || String(p.tipo_pago_id || '');
-            const estado = normalizePagoEstado(p.estado_calculado || p.estado) || 'PENDIENTE';
-            let badge = '<span class="badge badge-info">PENDIENTE</span>';
-            if (estado === 'PAGADO') badge = '<span class="badge badge-success">PAGADO</span>';
-            else if (estado === 'PARCIAL') badge = '<span class="badge badge-warning">PARCIAL</span>';
-
-            const abonado = p.monto_abonado != null ? p.monto_abonado : '';
-
+        mensualidadesBody.innerHTML = items.map(it => {
+            const isPagado = it.kind === 'pagado';
+            const valTxt = `$${formatMoney(it.feePerLote || 0)}`;
+            const pendTxt = isPagado ? '$0,00' : `$${formatMoney(it.pendienteMonto)}`;
+            const badge = isPagado ? '<span class="badge badge-success">Pagado completo</span>' : `<span class="badge badge-warning">Pendiente</span>`;
+            
             return `
                 <tr>
-                    <td>${tipo}</td>
-                    <td style="max-width: 280px; white-space: normal;">${p.descripcion || ''}</td>
-                    <td>$${formatMoney(p.monto_esperado)}</td>
-                    <td>${abonado === '' ? '-' : `$${formatMoney(abonado)}`}</td>
-                    <td>${badge}</td>
+                    <td class="font-bold">${it.year}</td>
+                    <td>${valTxt}</td>
+                    <td class="text-sm">${it.detail} ${it.kind !== 'pagado' ? `(${state.loteCount} lotes)` : ''}</td>
+                    <td><strong>${badge}</strong><br/><span class="text-sm">${pendTxt}</span></td>
                     <td>
-                        <button class="btn btn-primary btn-sm" data-pago-id="${p.id}">
-                            <i class="fas fa-hand-holding-usd"></i>
-                        </button>
+                        ${!isPagado ? `<button class="btn btn-primary btn-sm btn-action-mens" data-key="${it.key}">Cobrar</button>` : '—'}
                     </td>
                 </tr>
             `;
         }).join('');
 
-        // Row actions
-        obligacionesBody.querySelectorAll('button[data-pago-id]').forEach(btn => {
+        mensualidadesBody.querySelectorAll('.btn-action-mens').forEach(btn => {
             btn.addEventListener('click', () => {
-                if (cobrosState.socio && !cobrosState.socioActivo) {
-                    applySocioActivoGates();
-                    seleccionInfo.textContent = 'Socio retirado: no se pueden seleccionar obligaciones para pagar.';
-                    return;
-                }
-                const id = btn.getAttribute('data-pago-id');
-                const pago = cobrosState.pagos.find(x => x.id === id);
-                if (!pago) return;
-                cobrosState.selectedPago = pago;
-                const tipo = pago.tipo_codigo || pago.tipo_descripcion || String(pago.tipo_pago_id || '');
-                seleccionInfo.textContent = `Obligación seleccionada: ${tipo} - ${pago.descripcion || ''}`;
-                [pagoMonto, pagoReferencia, pagoObservaciones, pagoSubmit].forEach(el => el.disabled = false);
-                setInlineMessage(pagoMsg, '', '');
+                const key = btn.getAttribute('data-key');
+                const item = state.mensualidadItems.find(x => x.key === key);
+                selectItem('mens', item);
             });
         });
     }
 
-    async function loadSocioAndData() {
-        const cedula = (cedulaInput.value || '').trim();
-        setInlineMessage(pagoMsg, '', '');
-        setInlineMessage(obligMsg, '', '');
-        resetSelection();
-        setCreateEnabled(false);
-        setObligacionesFilterEnabled(false);
+    function renderOtros() {
+        const lotes = Number(state.loteCount || 0);
+        // Filtrar solo los que tengan saldo pendiente real (MontoUnitario * Lotes - Abonado > 0)
+        const list = (state.otrasObligaciones || []).filter(o => {
+            const realTotal = Number(o.monto_esperado) * lotes;
+            const abono = Number(o.monto_abonado || 0);
+            return (realTotal - abono) > 0.01; // Tolerancia de 1 centavo
+        });
 
-        if (!cedula) {
-            socioInfo.style.display = 'none';
-            obligacionesBody.innerHTML = `<tr><td colspan="6" class="text-center p-4">Busca un socio para ver obligaciones</td></tr>`;
+        if (list.length === 0) {
+            otrosBody.innerHTML = '<tr><td colspan="6" class="text-center p-4">No hay otros cargos pendientes.</td></tr>';
             return;
         }
 
-        await withLoader('Consultando pagos...', async () => {
+        otrosBody.innerHTML = list.map(o => {
+            const unit = Number(o.monto_esperado);
+            const pendiente = (unit * lotes) - Number(o.monto_abonado || 0);
+            
+            return `
+                <tr>
+                    <td class="text-xs font-bold">${o.tipo_codigo || 'CARGO'}</td>
+                    <td>
+                        <span class="font-bold">${o.descripcion}</span><br>
+                        <span class="text-xs text-muted">Solicitado: ${o.fecha_solicitud || '—'}</span>
+                    </td>
+                    <td>$${formatMoney(unit)}</td>
+                    <td>${lotes}</td>
+                    <td><span class="badge badge-danger">$${formatMoney(pendiente)}</span></td>
+                    <td>
+                        <button class="btn btn-primary btn-sm btn-action-otro" data-id="${o.id}">Cobrar</button>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+
+        otrosBody.querySelectorAll('.btn-action-otro').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const id = btn.getAttribute('data-id');
+                const item = state.otrasObligaciones.find(x => x.id === id);
+                selectItem('otro', item);
+            });
+        });
+    }
+
+    function selectItem(kind, item) {
+        state.selection = { kind, item };
+        const lc = Number(state.loteCount || 0);
+        setInlineMessage(pagoMsg, '', '');
+
+        if (kind === 'mens') {
+            seleccionInfo.innerHTML = `<strong>Año ${item.year}</strong> - ${item.detail}`;
+            fieldHastaMes.style.display = 'block';
+            
+            // Sugerir mes
+            const suggestedHasta = (item.year === new Date().getFullYear()) ? (new Date().getMonth() + 1) : 12;
+            const alreadyPaid = item.paidThroughMonth || 0;
+            hastaMesSelect.value = String(Math.max(suggestedHasta, alreadyPaid + 1));
+            actualizarMontoMensualidad();
+        } else {
+            seleccionInfo.innerHTML = `<strong>Cargo:</strong> ${item.descripcion}`;
+            fieldHastaMes.style.display = 'none';
+            // Cálculo del saldo real: (Unitario * Lotes) - Abonado
+            const unit = Number(item.monto_esperado);
+            const pendiente = (unit * lc) - Number(item.monto_abonado || 0);
+            const pendStr = Number(pendiente).toFixed(2);
+            pagoMonto.value = pendStr;
+            if (displayTotalPago) displayTotalPago.textContent = `$${formatMoney(pendiente)}`;
+        }
+        
+        // Abrir modal elegante
+        if (modalRecaudacion) modalRecaudacion.classList.remove('hidden');
+        
+        // Enfocar campo de referencia para agilizar
+        setTimeout(() => pagoReferencia?.focus(), 100);
+    }
+
+    function actualizarMontoMensualidad() {
+        if (!state.selection || state.selection.kind !== 'mens') return;
+        const item = state.selection.item;
+        const hasta = Number(hastaMesSelect.value);
+        const desde = Number(item.paidThroughMonth || 0);
+        const meses = Math.max(0, hasta - desde);
+        const total = meses * (item.feePerLote || 0) * (state.loteCount || 0);
+        const totalStr = Number(total).toFixed(2);
+        pagoMonto.value = totalStr;
+        if (displayTotalPago) displayTotalPago.textContent = `$${formatMoney(total)}`;
+    }
+
+    // Actualizar display al escribir manualmente en el monto
+    pagoMonto.addEventListener('input', () => {
+        const val = Number(pagoMonto.value || 0);
+        if (displayTotalPago) displayTotalPago.textContent = `$${formatMoney(val)}`;
+    });
+
+    hastaMesSelect.addEventListener('change', actualizarMontoMensualidad);
+
+    async function loadSocioAndData() {
+        const cedula = (cedulaInput.value || '').trim();
+        resetView();
+
+        if (!cedula) return;
+
+        await withLoader('Buscando deudas...', async () => {
             try {
-                const socio = await safeSelectSingle('unoric_socios', 'cedula, socio, estado', 'cedula', cedula);
+                const client = getSupabaseClient();
+                
+                // 1. Datos del socio y regularización (migración)
+                const socio = await safeSelectSingle('unoric_socios', 'cedula, socio, estado, socio_desde', 'cedula', cedula);
                 if (!socio) {
-                    socioInfo.style.display = 'block';
-                    socioInfo.textContent = 'Socio no encontrado.';
-                    obligacionesBody.innerHTML = `<tr><td colspan="6" class="text-center p-4">Socio no encontrado</td></tr>`;
+                    setInlineMessage(pagoMsg, 'Socio no encontrado.', 'error');
                     return;
                 }
-                cobrosState.socio = socio;
-                cobrosState.socioActivo = isSocioActivoValue(socio.estado);
+                
+                // Fetch regularization state
+                const regData = await safeSelectSingle('unoric_regularizacion_estado', 'regularizado_hasta_anio, regularizado_hasta_fecha', 'cedula_socio', cedula);
+                const regularizacion = regData ? { anio: regData.regularizado_hasta_anio, fecha: regData.regularizado_hasta_fecha } : null;
+
+                state.socio = socio;
+                const activo = isSocioActivoValue(socio.estado);
+                const statusColor = activo ? '#16a34a' : '#ef4444';
+                const statusIcon = activo ? 'fa-check-circle' : 'fa-times-circle';
+                const statusText = activo ? 'SOCIO ACTIVO' : 'SOCIO RETIRADO';
+
                 socioInfo.style.display = 'block';
-                socioInfo.textContent = `${socio.socio || ''} (Cédula: ${socio.cedula})${cobrosState.socioActivo ? '' : ' - RETIRADO'}`;
+                socioInfo.innerHTML = `
+                    <div style="background: linear-gradient(to right, var(--bg-color), transparent); border-left: 4px solid ${statusColor}; padding: 1rem; border-radius: 0 var(--radius-lg) var(--radius-lg) 0; display: flex; justify-content: space-between; align-items: center; box-shadow: var(--shadow-sm);">
+                        <div>
+                            <div class="text-xs font-bold text-muted uppercase tracking-wider mb-1">Información del Socio</div>
+                            <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                                <div class="text-xl font-extrabold text-primary" style="text-transform: uppercase;">${socio.socio}</div>
+                                ${socio.socio_desde ? `<span class="badge badge-info" style="font-size: 0.7rem; padding: 4px 8px;"><i class="far fa-calendar-alt mr-1"></i> Desde: ${socio.socio_desde}</span>` : ''}
+                            </div>
+                            <div class="text-sm text-muted mt-1">
+                                <i class="fas fa-id-card mr-1"></i> ${socio.cedula}
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <span class="badge" style="background: ${statusColor}15; color: ${statusColor}; border: 1px solid ${statusColor}30; padding: 0.5rem 1rem; font-size: 0.85rem; letter-spacing: 0.05em; font-weight: 700;">
+                                <i class="fas ${statusIcon} mr-1"></i> ${statusText}
+                            </span>
+                        </div>
+                    </div>
+                `;
 
-                cobrosState.lotes = await fetchLotesBySocio(cedula);
-                cobrosState.tipos = await fetchTiposPago();
-                cobrosState.pagos = await fetchPagosPorSocio(cedula);
+                // 2. Lotes
+                const lotes = await fetchLotesBySocio(cedula);
+                state.loteCount = lotes.length;
 
-                // Populate selects
-                tipoSelect.innerHTML = '<option value="">Selecciona...</option>' + cobrosState.tipos.map(t => {
-                    const flags = [t.es_regularizacion ? 'REG' : null, t.afecta_obligaciones ? 'OBL' : null].filter(Boolean).join(', ');
-                    const extra = flags ? ` (${flags})` : '';
-                    return `<option value="${t.id}">${t.codigo} - ${t.descripcion}${extra}</option>`;
-                }).join('');
-
-                loteSelect.innerHTML = '<option value="">Sin lote</option>' + cobrosState.lotes.map(l => {
-                    return `<option value="${l.id_lote}">Lote ${l.lote} (Etapa ${l.etapa})</option>`;
-                }).join('');
-
-                renderObligaciones(cobrosState.pagos);
-                setObligacionesFilterEnabled(true);
-
-                // Enable create obligation for both roles, but operators cannot set past periods
-                setCreateEnabled(true);
-                if (!isAdmin()) {
-                    // Operators: prevent setting past dates (visual)
-                    periodoDesde.setAttribute('min', todayISODate());
-                    periodoHasta.setAttribute('min', todayISODate());
-                } else {
-                    periodoDesde.removeAttribute('min');
-                    periodoHasta.removeAttribute('min');
+                // 3. Tarifas
+                const tipos = await fetchTiposPago();
+                const mensTipo = tipos.find(t => {
+                    const c = (t.codigo || '').toUpperCase().trim();
+                    const d = (t.descripcion || '').toLowerCase();
+                    return c === 'MENSUALIDAD' || d.includes('mensual');
+                });
+                state.mensualidadTipoId = mensTipo?.id;
+                
+                if (mensTipo) {
+                    state.mensualidadTarifas = await fetchTipoPagoTarifasPorAnio(mensTipo.id);
                 }
 
-                applySocioActivoGates();
-            } catch (e) {
-                console.error(e);
-                socioInfo.style.display = 'block';
-                socioInfo.textContent = `Error: ${e.message}`;
+                // 4. Pagos y Obligaciones
+                const pagosDeSocio = await fetchPagosPorSocio(cedula);
+                
+                // Separar Mensualidades de Otros
+                const mensPagos = (pagosDeSocio || []).filter(p => p.tipo_pago_id === state.mensualidadTipoId);
+                const otrosPagos = (pagosDeSocio || []).filter(p => p.tipo_pago_id !== state.mensualidadTipoId && p.estado !== 'PAGADO');
+
+                state.mensualidadItems = buildMensualidadItems(mensPagos, state.loteCount, state.mensualidadTarifas, mensTipo?.monto_base, state.socio.socio_desde, regularizacion);
+                state.otrasObligaciones = otrosPagos;
+
+                renderMensualidades();
+                renderOtros();
+                updateDashboard();
+
+                if (!activo) {
+                    setInlineMessage(pagoMsg, 'Socio retirado: consulte con tesorería.', 'error');
+                    pagoSubmit.disabled = true;
+                }
+
+            } catch (err) {
+                console.error(err);
+                setInlineMessage(pagoMsg, `Error de carga: ${err.message}`, 'error');
             }
         });
     }
 
-    buscarBtn.addEventListener('click', (e) => {
-        e.preventDefault();
-        loadSocioAndData();
-    });
-    cedulaInput.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            loadSocioAndData();
-        }
-    });
-
-    searchObligaciones.addEventListener('input', () => {
-        const term = (searchObligaciones.value || '').toLowerCase();
-        const filtered = (cobrosState.pagos || []).filter(p => {
-            const tipo = (p.tipo_codigo || p.tipo_descripcion || '').toLowerCase();
-            const desc = (p.descripcion || '').toLowerCase();
-            return tipo.includes(term) || desc.includes(term);
-        });
-        renderObligaciones(filtered);
-        resetSelection();
-    });
+    buscarBtn.addEventListener('click', loadSocioAndData);
+    cedulaInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') loadSocioAndData(); });
 
     pagoForm.addEventListener('submit', async (e) => {
         e.preventDefault();
-        setInlineMessage(pagoMsg, '', '');
-        if (cobrosState.socio && !cobrosState.socioActivo) {
-            applySocioActivoGates();
-            return;
-        }
-        if (!cobrosState.selectedPago) {
-            setInlineMessage(pagoMsg, 'Selecciona una obligación primero.', 'error');
-            return;
-        }
+        const sel = state.selection;
+        if (!sel) return;
 
         const monto = Number(pagoMonto.value);
         if (!monto || monto <= 0) {
-            setInlineMessage(pagoMsg, 'Monto inválido.', 'error');
+            await showAlert('Monto inválido', 'Por favor, ingresa un monto mayor a cero.');
             return;
         }
 
-        await withLoader('Registrando pago...', async () => {
+        const confirmacion = await showConfirm('Confirmar Recaudación', `¿Deseas registrar el pago de <strong>$${formatMoney(monto)}</strong> para este socio?`);
+        if (!confirmacion) return;
+
+        await withLoader('Procesando pago...', async () => {
             try {
                 const client = getSupabaseClient();
-                const payload = {
-                    pago_id: cobrosState.selectedPago.id,
-                    fecha_pago: pagoFecha.value || todayISODate(),
-                    monto,
-                    referencia: (pagoReferencia.value || '').trim() || null,
-                    observaciones: (pagoObservaciones.value || '').trim() || null,
-                    created_by: currentUser?.id
-                };
-                const { error } = await client.from('unoric_pagos_registros').insert([payload]);
-                if (error) throw error;
+                let pagoId = null;
 
-                setInlineMessage(pagoMsg, 'Pago registrado correctamente.', 'success');
-                pagoMonto.value = '';
-                pagoReferencia.value = '';
-                pagoObservaciones.value = '';
-
-                // refresh obligations
-                cobrosState.pagos = await fetchPagosPorSocio(cobrosState.socio.cedula);
-                renderObligaciones(cobrosState.pagos);
-            } catch (err) {
-                console.error(err);
-                setInlineMessage(pagoMsg, `Error registrando pago: ${err.message}`, 'error');
-            }
-        });
-    });
-
-    obligForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        setInlineMessage(obligMsg, '', '');
-
-        if (!cobrosState.socio) {
-            setInlineMessage(obligMsg, 'Busca un socio primero.', 'error');
-            return;
-        }
-
-        if (!cobrosState.socioActivo) {
-            applySocioActivoGates();
-            return;
-        }
-
-        const tipoId = Number(tipoSelect.value);
-        const monto = Number(montoEsperado.value);
-        const descripcion = (descInput.value || '').trim();
-
-        if (!tipoId) {
-            setInlineMessage(obligMsg, 'Selecciona un tipo de pago.', 'error');
-            return;
-        }
-        if (!descripcion) {
-            setInlineMessage(obligMsg, 'Descripción requerida.', 'error');
-            return;
-        }
-        if (!monto || monto <= 0) {
-            setInlineMessage(obligMsg, 'Monto esperado inválido.', 'error');
-            return;
-        }
-
-        if (!isAdmin()) {
-            if (isPastDate(periodoDesde.value) || isPastDate(periodoHasta.value)) {
-                setInlineMessage(obligMsg, 'Operador: no se permiten obligaciones con periodos en el pasado.', 'error');
-                return;
-            }
-        }
-
-        await withLoader('Creando obligación...', async () => {
-            try {
-                const client = getSupabaseClient();
-                const payload = {
-                    cedula_socio: cobrosState.socio.cedula,
-                    id_lote: loteSelect.value || null,
-                    tipo_pago_id: tipoId,
-                    descripcion,
-                    monto_esperado: monto,
-                    periodo_desde: periodoDesde.value || null,
-                    periodo_hasta: periodoHasta.value || null,
-                    estado: 'PENDIENTE',
-                    created_by: currentUser?.id
-                };
-                const { data, error } = await client.from('unoric_pagos').insert([payload]).select('id').single();
-                if (error) throw error;
-
-                setInlineMessage(obligMsg, 'Obligación creada correctamente.', 'success');
-                // refresh
-                cobrosState.pagos = await fetchPagosPorSocio(cobrosState.socio.cedula);
-                renderObligaciones(cobrosState.pagos);
-
-                // auto-select newly created obligation if returned
-                if (data?.id) {
-                    const created = cobrosState.pagos.find(x => x.id === data.id);
-                    if (created) {
-                        cobrosState.selectedPago = created;
-                        const tipo = created.tipo_codigo || created.tipo_descripcion || String(created.tipo_pago_id || '');
-                        seleccionInfo.textContent = `Obligación seleccionada: ${tipo} - ${created.descripcion || ''}`;
-                        [pagoMonto, pagoReferencia, pagoObservaciones, pagoSubmit].forEach(el => el.disabled = false);
+                if (sel.kind === 'mens') {
+                    const item = sel.item;
+                    const hastaMes = Number(hastaMesSelect.value);
+                    const fechaHasta = `${item.year}-${String(hastaMes).padStart(2, '0')}-${lastDayOfMonth(item.year, hastaMes)}`;
+                    
+                    if (item.existingId) {
+                        const { error } = await client.from('unoric_pagos').update({
+                            periodo_hasta: fechaHasta,
+                            monto_esperado: monto + (item.monto_abonado || 0)
+                        }).eq('id', item.existingId);
+                        if (error) throw error;
+                        pagoId = item.existingId;
+                    } else {
+                        const { data, error } = await client.from('unoric_pagos').insert([{
+                            cedula_socio: state.socio.cedula,
+                            tipo_pago_id: state.mensualidadTipoId,
+                            descripcion: `Mensualidad ${item.year} hasta ${monthNameES(hastaMes)}`,
+                            monto_esperado: monto,
+                            periodo_desde: `${item.year}-01-01`,
+                            periodo_hasta: fechaHasta,
+                            estado: 'PENDIENTE',
+                            created_by: currentUser?.id
+                        }]).select().single();
+                        if (error) throw error;
+                        pagoId = data.id;
                     }
+                } else {
+                    pagoId = sel.item.id;
                 }
+
+                const { error: regError } = await client.from('unoric_pagos_registros').insert([{
+                    pago_id: pagoId,
+                    monto: monto,
+                    fecha_pago: pagoFecha.value,
+                    referencia: pagoReferencia.value,
+                    observaciones: pagoObservaciones.value,
+                    created_by: currentUser?.id
+                }]);
+                if (regError) throw regError;
+
+                if (modalRecaudacion) modalRecaudacion.classList.add('hidden');
+                await showAlert('Pago registrado', 'El cobro se ha registrado correctamente.');
+                loadSocioAndData(); 
+
             } catch (err) {
                 console.error(err);
-                setInlineMessage(obligMsg, `Error creando obligación: ${err.message}`, 'error');
+                await showAlert('Error', 'No se pudo completar la operación: ' + err.message);
             }
         });
     });
+
+    // --- CARGO MANUAL ---
+    if (btnCrearManual) {
+        btnCrearManual.addEventListener('click', async () => {
+            if (!state.socio) { 
+                await showAlert('Atención', 'Primero debes seleccionar un socio para asignarle un cargo.');
+                return; 
+            }
+            modalManual.classList.remove('hidden');
+            const tipos = await fetchTiposPago();
+            const manualTipoSelect = document.getElementById('manual-tipo');
+            manualTipoSelect.innerHTML = tipos.map(t => `<option value="${t.id}">${t.codigo}</option>`).join('');
+            updateManualTotal();
+        });
+    }
+
+    function updateManualTotal() {
+        const u = Number(manualUnitario.value || 0);
+        const total = u * (state.loteCount || 0);
+        manualTotalPreview.textContent = `Total proyectado: $${formatMoney(total)} (${state.loteCount} lotes)`;
+    }
+
+    if (manualUnitario) {
+        manualUnitario.addEventListener('input', updateManualTotal);
+    }
+
+    const closeManual = document.getElementById('close-modal-manual');
+    if (closeManual) {
+        closeManual.addEventListener('click', () => modalManual.classList.add('hidden'));
+    }
+
+    const formManual = document.getElementById('cobros-form-manual');
+    if (formManual) {
+        formManual.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const tipoId = document.getElementById('manual-tipo').value;
+            const desc = document.getElementById('manual-desc').value;
+            const unit = Number(manualUnitario.value);
+            
+            await withLoader('Creando cargo...', async () => {
+                try {
+                    const client = getSupabaseClient();
+                    const { error } = await client.from('unoric_pagos').insert([{
+                        cedula_socio: state.socio.cedula,
+                        tipo_pago_id: tipoId,
+                        descripcion: desc,
+                        monto_esperado: unit,
+                        estado: 'PENDIENTE',
+                        created_by: currentUser?.id
+                    }]);
+                    if (error) throw error;
+                    await showAlert('Éxito', 'El cargo manual se ha creado correctamente.');
+                    modalManual.classList.add('hidden');
+                    loadSocioAndData();
+                } catch (err) {
+                    await showAlert('Error', 'No se pudo crear el cargo: ' + err.message);
+                }
+            });
+        });
+    }
 }
 
 // ==========================================
@@ -2998,10 +3574,428 @@ async function initTiposPagoModule() {
 }
 
 // ==========================================
+// CAJA MODULE (HUB)
+// ==========================================
+async function initCajaModule() {
+    const btnCobros = document.getElementById('caja-goto-cobros');
+    const btnGenerador = document.getElementById('caja-goto-generador');
+    const btnMensualidades = document.getElementById('caja-goto-mensualidades');
+
+    if (btnCobros) {
+        btnCobros.addEventListener('click', () => {
+            setActiveNav('cobros');
+            loadView('cobros');
+        });
+    }
+
+    if (btnGenerador) {
+        btnGenerador.addEventListener('click', () => {
+            // Nota: crear_cuotas no está en el nav lateral pero es accesible desde aquí
+            loadView('crear_cuotas');
+        });
+    }
+
+    if (btnMensualidades) {
+        btnMensualidades.addEventListener('click', () => {
+            setActiveNav('mensualidad');
+            loadView('mensualidad');
+        });
+    }
+}
+
+// ==========================================
+// GENERADOR DE CUOTAS MASIVAS (ADMIN)
+// ==========================================
+let cuotasState = {
+    sociosFiltrados: [],
+    tiposPago: []
+};
+
+async function initCrearCuotasModule() {
+    const backBtn = document.getElementById('cuotas-back-btn');
+    const tipoPagoSelect = document.getElementById('cuotas-tipo-pago');
+    const fechaInput = document.getElementById('cuotas-fecha');
+    const descripcionInput = document.getElementById('cuotas-descripcion');
+    const montoInput = document.getElementById('cuotas-monto');
+    
+    // Filtros
+    const filterDesde = document.getElementById('filter-desde-anio');
+    const filterHasta = document.getElementById('filter-hasta-anio');
+    const filterEtapa = document.getElementById('filter-cuotas-etapa');
+    const filterActivos = document.getElementById('filter-cuotas-solo-activos');
+    const filterConLote = document.getElementById('filter-cuotas-con-lote');
+    
+    const generarBtn = document.getElementById('cuotas-generar-btn');
+    const countMsg = document.getElementById('cuotas-count-msg');
+    const globalMsg = document.getElementById('cuotas-global-msg');
+
+    fechaInput.value = todayISODate();
+
+    if (backBtn) {
+        backBtn.addEventListener('click', () => {
+            loadView('caja');
+        });
+    }
+
+    // Auto-actualizar al cambiar filtros
+    [filterDesde, filterHasta, filterEtapa, filterActivos, filterConLote].forEach(el => {
+        if (el) {
+            el.addEventListener('input', aplicarFiltros);
+            el.addEventListener('change', aplicarFiltros);
+        }
+    });
+
+    // Cargar tipos de pago
+    try {
+        cuotasState.tiposPago = await fetchTiposPago();
+        tipoPagoSelect.innerHTML = '<option value="">Selecciona un tipo...</option>' + 
+            cuotasState.tiposPago.map(t => `<option value="${t.id}">${t.codigo} - ${t.descripcion}</option>`).join('');
+    } catch (err) {
+        console.error('Error al cargar tipos de pago:', err);
+    }
+
+    // Asegurarse de que los socios estén cargados
+    if (allSocios.length === 0) {
+        await preloadAllData();
+        // Intentar cargar socios si preloadAllData no llenó allSocios
+        if (allSocios.length === 0) {
+            const client = getSupabaseClient();
+            const { data: socios } = await client.from('unoric_socios').select('*');
+            const { data: lotes } = await client.from('unoric_lotes').select('*');
+            if (socios && lotes) {
+                allSocios = socios.map(s => ({
+                    ...s,
+                    lotes: lotes.filter(l => l.socio === s.cedula)
+                }));
+            }
+        }
+    }
+
+    function aplicarFiltros() {
+        const desde = Number(filterDesde.value) || 0;
+        const hasta = Number(filterHasta.value) || 9999;
+        const etapa = filterEtapa.value;
+        const soloActivos = filterActivos.checked;
+        const soloConLote = filterConLote.checked;
+
+        cuotasState.sociosFiltrados = allSocios.filter(s => {
+            // Antigüedad
+            const anioSocio = socioDesdeYear(s);
+            if (desde > 0 && anioSocio < desde) return false;
+            if (hasta < 9999 && anioSocio > hasta) return false;
+
+            // Etapa
+            if (etapa !== 'all') {
+                const tieneEtapa = s.lotes.some(l => String(l.etapa) === etapa);
+                if (!tieneEtapa) return false;
+            }
+
+            // Estado
+            if (soloActivos && !isSocioActivoValue(s.estado)) return false;
+
+            // Con Lote
+            if (soloConLote && (!s.lotes || s.lotes.length === 0)) return false;
+
+            return true;
+        });
+
+        renderPreview();
+    }
+
+    function socioDesdeYear(socio) {
+        const y = Number(socio.socio_desde);
+        return Number.isFinite(y) ? y : 0;
+    }
+
+    function renderPreview() {
+        const list = cuotasState.sociosFiltrados;
+        if (countMsg) countMsg.textContent = `Se han encontrado ${list.length} socios que cumplen los criterios.`;
+        
+        generarBtn.disabled = list.length === 0;
+        generarBtn.innerHTML = `<i class="fas fa-bolt"></i> Generar ${list.length} Pagos Masivos`;
+        
+        // La tabla ha sido eliminada por solicitud del usuario para simplificar.
+    }
+
+    generarBtn.addEventListener('click', async () => {
+        if (!isAdmin()) {
+            setInlineMessage(globalMsg, 'Error: Solo un administrador puede realizar esta acción.', 'error');
+            return;
+        }
+
+        const tipoId = Number(tipoPagoSelect.value);
+        const originalDescripcion = descripcionInput.value.trim();
+        const monto = Number(montoInput.value);
+        const fecha = fechaInput.value;
+        const anio = filterDesde.value || new Date(fecha).getFullYear();
+        
+        // Formato solicitado: nombre - año
+        const descripcion = `${originalDescripcion} - ${anio}`;
+
+        if (!tipoId || !originalDescripcion || !monto || !fecha) {
+            setInlineMessage(globalMsg, 'Error: Completa todos los campos obligatorios en el Paso 1.', 'error');
+            return;
+        }
+
+        const confirmar = await showConfirm('Confirmar Generación Masiva', `
+            <div style="text-align:center;">
+                <p>¿Estás seguro de generar <strong>${cuotasState.sociosFiltrados.length}</strong> cobros masivos?</p>
+                <div class="card" style="background:#f8fafc; padding:1rem; margin-top:1rem; border:1px solid #e2e8f0; text-align:left;">
+                    <p><strong>Concepto:</strong> ${descripcion}</p>
+                    <p><strong>Monto c/u:</strong> $${monto.toFixed(2)}</p>
+                    <p><strong>Total estimate:</strong> $${(monto * cuotasState.sociosFiltrados.length).toFixed(2)}</p>
+                </div>
+            </div>
+        `);
+        if (!confirmar) return;
+
+        await withLoader('Generando obligaciones masivas...', async () => {
+            try {
+                const client = getSupabaseClient();
+                const total = cuotasState.sociosFiltrados.length;
+                const batchSize = 50; 
+                let exitosos = 0;
+
+                for (let i = 0; i < total; i += batchSize) {
+                    const batch = cuotasState.sociosFiltrados.slice(i, i + batchSize);
+                    const records = batch.map(s => ({
+                        cedula_socio: s.cedula,
+                        tipo_pago_id: tipoId,
+                        descripcion: descripcion,
+                        monto_esperado: monto,
+                        fecha_solicitud: fecha,
+                        estado: 'PENDIENTE',
+                        created_by: currentUser?.id
+                    }));
+
+                    const { error } = await client.from('unoric_pagos').insert(records);
+                    if (error) throw error;
+                    exitosos += batch.length;
+                    
+                    if (total > batchSize) {
+                        setInlineMessage(globalMsg, `Procesando: ${exitosos} de ${total}...`, 'success');
+                    }
+                }
+
+                // Modal elegante de éxito
+                const btnNo = document.getElementById('confirm-btn-no');
+                const btnYes = document.getElementById('confirm-btn-yes');
+                const oldNoText = btnNo.textContent;
+                const oldYesText = btnYes.textContent;
+                
+                btnNo.style.display = 'none';
+                btnYes.textContent = '¡Entendido!';
+
+                await showConfirm('¡Generación Exitosa!', `
+                    <div style="text-align:center; padding:1rem;">
+                        <i class="fas fa-check-circle" style="font-size:4rem; color:var(--success-color); margin-bottom:1.5rem; display:block;"></i>
+                        <h3 style="margin-bottom:1rem;">¡Proceso Completado!</h3>
+                        <p style="font-size:1.1rem; margin-bottom:1rem;">Se han creado correctamente <strong>${exitosos}</strong> cobros.</p>
+                        <div style="background:#f0fdf4; border:1px solid #bbf7d0; padding:1rem; border-radius:0.5rem; text-align:left;">
+                            <p style="margin:0; color:#166534;"><strong>Motivo:</strong> ${descripcion}</p>
+                            <p style="margin:0; color:#166534;"><strong>Monto:</strong> $${monto.toFixed(2)}</p>
+                        </div>
+                    </div>
+                `);
+
+                // Restaurar modal
+                btnNo.style.display = '';
+                btnNo.textContent = oldNoText;
+                btnYes.textContent = oldYesText;
+
+                // Bloquear botón para evitar doble envío accidental
+                generarBtn.disabled = true;
+                
+                // Limpiar campos
+                descripcionInput.value = '';
+                montoInput.value = '';
+                
+                // Cargar pagos existentes para refrescar la lista de abajo
+                cargarPagosExistentes(anio);
+
+            } catch (err) {
+                console.error(err);
+                setInlineMessage(globalMsg, `Error durante la generación: ${err.message}`, 'error');
+            }
+        });
+    });
+
+    // ==========================================
+    // SECCIÓN: PAGOS EXISTENTES POR AÑO
+    // ==========================================
+    const pagosExistentesBtns = document.getElementById('pagos-existentes-btns');
+    const pagosExistentesBody = document.getElementById('pagos-existentes-body');
+    const pagosExistentesCount = document.getElementById('pagos-existentes-count');
+
+    async function cargarPagosExistentes(anio) {
+        if (!anio) {
+            pagosExistentesBody.innerHTML = '<p class="text-center w-full p-4">Selecciona un año para ver los pagos generados.</p>';
+            pagosExistentesCount.textContent = 'Selecciona un año para ver los pagos generados.';
+            return;
+        }
+
+        // Mostrar skeletons mientras carga
+        pagosExistentesBody.innerHTML = Array(4).fill(0).map(() => '<div class="pagos-skeleton"></div>').join('');
+        pagosExistentesCount.textContent = `Buscando pagos de ${anio}...`;
+
+        try {
+            const client = getSupabaseClient();
+            
+            // Buscar pagos cuya descripción contenga el año seleccionado (ej: "2019")
+            const { data: pagos, error } = await client
+                .from('unoric_pagos')
+                .select('id, descripcion, tipo_pago_id, monto_esperado, fecha_solicitud, cedula_socio, created_at')
+                .ilike('descripcion', `%${anio}%`)
+                .order('descripcion', { ascending: true });
+
+            if (error) throw error;
+
+            // Obtener IDs de tipos a excluir: REGULARIZACION y MENSUALIDAD
+            const tiposExcluirIds = new Set(
+                cuotasState.tiposPago
+                    .filter(t => t.es_regularizacion || t.codigo === 'MENSUALIDAD' || t.codigo === 'MENS')
+                    .map(t => t.id)
+            );
+
+            // Filtrar pagos excluyendo los tipos REGULARIZACION y MENSUALIDAD
+            const pagosFiltrados = pagos.filter(p => !tiposExcluirIds.has(p.tipo_pago_id));
+
+            if (!pagosFiltrados || pagosFiltrados.length === 0) {
+                pagosExistentesBody.innerHTML = `<p class="text-center w-full p-4">No hay pagos con "${anio}" en la descripción.</p>`;
+                pagosExistentesCount.textContent = `No se encontraron pagos con "${anio}" en la descripción.`;
+                return;
+            }
+
+            // Agrupar por descripción, tipo y monto (sin fecha, ya que es el mismo concepto masivo)
+            const agrupados = {};
+            pagosFiltrados.forEach(p => {
+                const key = `${p.descripcion}|${p.monto_esperado}|${p.tipo_pago_id}`;
+                if (!agrupados[key]) {
+                    agrupados[key] = {
+                        descripcion: p.descripcion,
+                        tipo_pago_id: p.tipo_pago_id,
+                        monto: p.monto_esperado,
+                        cantidad: 0,
+                        total: 0
+                    };
+                }
+                agrupados[key].cantidad++;
+                agrupados[key].total += p.monto_esperado;
+            });
+
+            // Obtener nombres de tipos de pago (solo antes del guión)
+            const tiposMap = {};
+            cuotasState.tiposPago.forEach(t => { 
+                const full = `${t.codigo} - ${t.descripcion}`;
+                tiposMap[t.id] = full.split('-')[0].trim();
+            });
+
+            const grupos = Object.values(agrupados).sort((a, b) => a.descripcion.localeCompare(b.descripcion));
+            
+            // Renderizar con animación
+            pagosExistentesBody.innerHTML = grupos.map((g, index) => `
+                <div class="card animate-fade-in-stretch" style="padding: 0.6rem; min-width: 170px; flex: 1 1 calc(25% - 0.75rem); border: 1px solid #eef2f7; box-shadow: 0 2px 4px rgba(0,0,0,0.04); background: #fff; animation-delay: ${index * 0.05}s; position: relative; group;">
+                    <button class="btn-delete-pago" data-descripcion="${g.descripcion}" style="position: absolute; top: 5px; right: 5px; background: none; border: none; color: #ef4444; cursor: pointer; padding: 2px; font-size: 0.8rem; opacity: 0.6; transition: 0.2s;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.6" title="Eliminar este grupo de pagos">
+                        <i class="fas fa-trash-alt"></i>
+                    </button>
+                    <div style="font-weight: 600; margin-bottom: 0.35rem; font-size: 0.85rem; color: #334155; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-right: 20px;" title="${g.descripcion}">
+                        ${g.descripcion || '—'}
+                    </div>
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span class="badge badge-info" style="font-size: 0.65rem; padding: 1px 5px; background: #e0f2fe; color: #0369a1; border: none;">
+                            ${tiposMap[g.tipo_pago_id] || 'N/A'}
+                        </span>
+                        <div style="display: flex; flex-direction: column; align-items: flex-end;">
+                            <span style="font-weight: 700; font-size: 0.95rem; color: #0f172a;">$${g.monto.toFixed(2)}</span>
+                            <span style="font-size: 0.6rem; color: var(--text-muted);">${g.cantidad} socios</span>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+
+            pagosExistentesCount.textContent = `Se encontraron ${pagosFiltrados.length} pagos con "${anio}" (${grupos.length} conceptos diferentes).`;
+
+        } catch (err) {
+            console.error('Error al cargar pagos existentes:', err);
+            pagosExistentesBody.innerHTML = `<p class="text-center w-full p-4 text-danger">Error: ${err.message}</p>`;
+        }
+    }
+
+    // Event listeners para botones de año
+    if (pagosExistentesBtns) {
+        pagosExistentesBtns.addEventListener('click', (e) => {
+            const btn = e.target.closest('button[data-anio]');
+            if (!btn) return;
+            
+            // Marcar botón activo
+            pagosExistentesBtns.querySelectorAll('button').forEach(b => b.classList.remove('btn-primary'));
+            btn.classList.add('btn-primary');
+            btn.classList.remove('btn-outline');
+            
+            // Cargar pagos del año seleccionado
+            const anio = btn.dataset.anio;
+            cargarPagosExistentes(anio);
+        });
+    }
+
+    // Delegación de eventos para eliminar pagos
+    if (pagosExistentesBody) {
+        pagosExistentesBody.addEventListener('click', async (e) => {
+            const btn = e.target.closest('.btn-delete-pago');
+            if (!btn) return;
+
+            const descripcion = btn.dataset.descripcion;
+            const currentAnioBtn = pagosExistentesBtns.querySelector('.btn-primary');
+            const anio = currentAnioBtn ? currentAnioBtn.dataset.anio : '2019';
+
+            const confirmar = await showConfirm(
+                'Eliminar Pagos Masivos', 
+                `<div style="text-align:center;">
+                    <p>¿Estás seguro de eliminar todos los pagos con la descripción:</p>
+                    <p style="margin: 1rem 0; font-weight: 700; color: var(--accent-red);">${descripcion}</p>
+                    <p style="font-size: 0.9rem; color: var(--text-muted);">Esta acción no se puede deshacer y afectará a todos los socios que tienen este cobro pendiente o pagado.</p>
+                </div>`
+            );
+
+            if (!confirmar) return;
+
+            await withLoader('Eliminando pagos...', async () => {
+                try {
+                    const client = getSupabaseClient();
+                    const { error } = await client
+                        .from('unoric_pagos')
+                        .delete()
+                        .eq('descripcion', descripcion);
+
+                    if (error) throw error;
+                    
+                    // Notificar éxito y refrescar
+                    showAlert('Éxito', 'Los pagos seleccionados han sido eliminados correctamente.');
+                    cargarPagosExistentes(anio);
+                } catch (err) {
+                    console.error('Error al eliminar pagos:', err);
+                    showAlert('Error', `No se pudieron eliminar los pagos: ${err.message}`);
+                }
+            });
+        });
+    }
+
+    // Cargar previsualización inicial y pagos 2019 (default)
+    aplicarFiltros();
+    
+    if (pagosExistentesBtns) {
+        const defaultBtn = pagosExistentesBtns.querySelector('button[data-anio="2019"]');
+        if (defaultBtn) {
+            defaultBtn.classList.add('btn-primary');
+            defaultBtn.classList.remove('btn-outline');
+            cargarPagosExistentes('2019');
+        }
+    }
+}
+
+// ==========================================
 // SOCIOS MODULE LOGIC
 // ==========================================
-let allSocios = [];
-let filteredSocios = [];
 
 async function initSociosModule() {
     const tableBody = document.getElementById('socios-table-body');
@@ -3125,43 +4119,6 @@ async function initMensualidadModule() {
 
     fechaEl.value = todayISODate();
 
-    const DEFAULT_MENSUALIDAD_USD_POR_LOTE = 5;
-
-    const MONTHS_ES = [
-        'ENERO', 'FEBRERO', 'MARZO', 'ABRIL', 'MAYO', 'JUNIO',
-        'JULIO', 'AGOSTO', 'SEPTIEMBRE', 'OCTUBRE', 'NOVIEMBRE', 'DICIEMBRE'
-    ];
-    function monthNameES(month) {
-        const m = Number(month);
-        if (!m || m < 1 || m > 12) return '';
-        return MONTHS_ES[m - 1];
-    }
-
-    function computeMonthlyFeePerLote() {
-        // Regla fija solicitada: 5 USD por lote por mes
-        return DEFAULT_MENSUALIDAD_USD_POR_LOTE;
-    }
-
-    function computeMonthlyFeePerLoteForYear(year) {
-        const y = Number(year);
-        const fromTarifa = mensState?.tarifasPorAnio?.get?.(y);
-        if (fromTarifa != null && Number(fromTarifa) > 0) return Number(fromTarifa);
-
-        const fromBase = mensState?.mensualidadTipoMontoBase;
-        if (fromBase != null && Number(fromBase) > 0) return Number(fromBase);
-
-        return computeMonthlyFeePerLote();
-    }
-
-    function computeAmountForYearItem(item, hastaMes, loteCount) {
-        const lc = Number(loteCount || 0);
-        const fee = computeMonthlyFeePerLoteForYear(item?.year);
-        const fromMonth = Number(item?.paidThroughMonth || 0);
-        const toMonth = Number(hastaMes || 0);
-        const monthsToPay = Math.max(0, toMonth - fromMonth);
-        return monthsToPay * fee * lc;
-    }
-
     function resetSelection() {
         mensState.selectedPago = null;
         seleccionInfo.textContent = 'Selecciona un año pendiente en la tabla.';
@@ -3197,18 +4154,31 @@ async function initMensualidadModule() {
             localResults.innerHTML = '';
             return;
         }
-        const top = matches.slice(0, 8);
+        const top = matches.slice(0, 12);
         localResults.innerHTML = `
-            <div class="mt-2">
-                <div class="text-muted text-sm mb-1">Coincidencias (clic para seleccionar):</div>
-                <div class="grid" style="grid-template-columns: 1fr; gap: 6px;">
+            <div class="mt-4" style="background: var(--bg-color); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 1.5rem; box-shadow: var(--shadow-sm);">
+                <div class="text-muted text-xs font-bold uppercase mb-4 px-1" style="letter-spacing: 0.05em; display: flex; align-items: center; gap: 8px;">
+                    <i class="fas fa-search text-primary" style="font-size: 0.8rem;"></i>
+                    Coincidencias encontradas (${matches.length}):
+                </div>
+                <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; width: 100%;">
                     ${top.map(s => {
             const activo = isSocioActivoValue(s.estado);
-            const badge = activo ? '' : '<span class="badge badge-danger" style="margin-left:8px;">Retirado</span>';
+            const desde = s.socio_desde ? `<div class="text-xs text-muted mt-2" style="background: rgba(0,0,0,0.03); padding: 4px 8px; border-radius: 4px; display: inline-block;"><i class="far fa-calendar-alt mr-1"></i> Socio desde: <strong>${s.socio_desde}</strong></div>` : '';
             return `
-                            <button type="button" class="btn btn-secondary" style="justify-content: space-between; display:flex; align-items:center;" data-cedula="${s.cedula}">
-                                <span>${s.socio || ''} <span class="text-muted">(${s.cedula})</span></span>
-                                ${badge}
+                            <button type="button" class="btn btn-secondary btn-sm" style="display:block; text-align: left; background: var(--card-bg); padding: 1.5rem; border: 1px solid var(--border-color); transition: all 0.2s; height: auto; width: 100%; box-shadow: var(--shadow-sm); position: relative; overflow: hidden;" data-cedula="${s.cedula}">
+                                <div style="display:flex; justify-content: space-between; align-items: flex-start;">
+                                    <div style="flex: 1; padding-right: 12px;">
+                                        <div style="font-weight: 800; color: var(--primary-color); line-height: 1.3; font-size: 1rem; text-transform: uppercase; margin-bottom: 4px;">${s.socio || ''}</div>
+                                        <div class="text-sm font-medium text-muted" style="display:flex; align-items:center; gap: 6px;">
+                                            <i class="fas fa-id-card" style="font-size: 0.8rem; opacity: 0.5;"></i> 
+                                            ${s.cedula}
+                                        </div>
+                                    </div>
+                                    ${!activo ? '<span class="badge badge-danger" style="font-size: 0.65rem; padding: 4px 8px; border-radius: 4px;">Retirado</span>' : '<i class="fas fa-chevron-right text-muted" style="font-size: 0.8rem; opacity: 0.5;"></i>'}
+                                </div>
+                                ${desde}
+                                <div style="position: absolute; bottom: 0; left: 0; right: 0; height: 3px; background: ${activo ? 'var(--primary-color)' : '#ef4444'}; opacity: 0.1;"></div>
                             </button>
                         `;
         }).join('')}
@@ -3324,124 +4294,6 @@ async function initMensualidadModule() {
         });
     }
 
-    function buildMensualidadItems(pagosBase, loteCount) {
-        // pagosBase: rows from unoric_pagos (tipo MENSUALIDAD). Interpretación:
-        // Un registro por AÑO: periodo_desde=YYYY-01-01, periodo_hasta=YYYY-MM-DD (hasta qué mes pagó).
-        const now = new Date();
-        const currentYear = now.getFullYear();
-
-        let minYear = currentYear;
-        let defaultMonto = null;
-
-        // Pick the best record per year (max periodo_hasta). If duplicates exist, we take the furthest coverage.
-        const bestByYear = new Map(); // year -> { id, estado, hastaMonth, hastaDateISO, monto }
-
-        (pagosBase || []).forEach(p => {
-            if (p.monto_esperado != null && Number(p.monto_esperado) > 0) defaultMonto = defaultMonto ?? Number(p.monto_esperado);
-
-            const from = parseISODateParts(p.periodo_desde);
-            const to = parseISODateParts(p.periodo_hasta);
-            const y = from?.year || to?.year;
-            if (!y) return;
-            if (y < minYear) minYear = y;
-
-            const hastaISO = String(p.periodo_hasta || '');
-            const hastaMonth = to?.month || 0;
-            const estado = normalizePagoEstado(p.estado) || 'PENDIENTE';
-            const prev = bestByYear.get(y);
-
-            if (!prev) {
-                bestByYear.set(y, {
-                    id: p.id,
-                    estado,
-                    hastaMonth,
-                    hastaISO,
-                    monto: p.monto_esperado
-                });
-                return;
-            }
-
-            // Compare by periodo_hasta; fall back to month
-            const prevISO = String(prev.hastaISO || '');
-            if (hastaISO && (!prevISO || hastaISO > prevISO)) {
-                bestByYear.set(y, {
-                    id: p.id,
-                    estado,
-                    hastaMonth,
-                    hastaISO,
-                    monto: p.monto_esperado
-                });
-            } else if (hastaMonth > (prev.hastaMonth || 0)) {
-                bestByYear.set(y, {
-                    id: p.id,
-                    estado,
-                    hastaMonth,
-                    hastaISO,
-                    monto: p.monto_esperado
-                });
-            }
-        });
-
-        const items = [];
-        const lc = Number(loteCount || 0);
-
-        for (let y = minYear; y <= currentYear; y += 1) {
-            const best = bestByYear.get(y);
-            const paidThroughMonth = best?.hastaMonth || 0;
-            const fullYearPaid = best && best.estado === 'PAGADO' && paidThroughMonth >= 12;
-
-            const monthlyFeePerLote = computeMonthlyFeePerLoteForYear(y);
-
-            const pendingMonths = fullYearPaid ? 0 : Math.max(0, 12 - paidThroughMonth);
-            const pendienteMonto = pendingMonths * monthlyFeePerLote * lc;
-            const pendienteDisplay = null;
-
-            if (fullYearPaid) {
-                items.push({
-                    kind: 'pagado',
-                    key: `paid-${y}`,
-                    year: y,
-                    paidThroughMonth,
-                    pagoId: best.id,
-                    detail: 'Pagado (año completo)',
-                    estado: 'PAGADO',
-                    pendienteMonto: 0,
-                    pendienteDisplay: null,
-                    feePerLote: monthlyFeePerLote
-                });
-            } else {
-                const detail = best
-                    ? (paidThroughMonth > 0 ? `Pagado hasta ${monthNameES(paidThroughMonth)}` : 'Pendiente')
-                    : 'Sin pago registrado';
-
-                items.push({
-                    kind: 'pendiente',
-                    key: `pend-${y}`,
-                    year: y,
-                    paidThroughMonth,
-                    pagoId: best?.id || null,
-                    detail,
-                    estado: 'PENDIENTE',
-                    pendienteMonto,
-                    pendienteDisplay,
-                    pendingMonths,
-                    feePerLote: monthlyFeePerLote
-                });
-            }
-        }
-
-        // Pendientes primero, luego pagados
-        items.sort((a, b) => {
-            const ga = a.kind === 'pendiente' ? 0 : 1;
-            const gb = b.kind === 'pendiente' ? 0 : 1;
-            if (ga !== gb) return ga - gb;
-            if (a.year !== b.year) return a.year - b.year;
-            return 0;
-        });
-
-        return { items, defaultMonto };
-    }
-
     async function consultar() {
         setInlineMessage(msgEl, '', '');
         setInlineMessage(pagoMsg, '', '');
@@ -3464,10 +4316,7 @@ async function initMensualidadModule() {
 
         mensState.socio = socio;
         mensState.socioActivo = isSocioActivoValue(socio.estado);
-        const badge = mensState.socioActivo ? '' : ' <span class="badge badge-danger">RETIRADO</span>';
-        socioInfo.style.display = 'block';
-        socioInfo.innerHTML = `${socio.socio || ''} (Cédula: ${socio.cedula})${badge}`;
-
+        
         await withLoader('Consultando mensualidades...', async () => {
             try {
                 mensState.tipos = await fetchTiposPago();
@@ -3490,16 +4339,42 @@ async function initMensualidadModule() {
                 mensState.tarifasPorAnio = await fetchTipoPagoTarifasPorAnio(primaryTipo.id);
                 mensState.pagos = await fetchPagosBasePorSocio(mensState.socio.cedula, mensState.mensualidadTipoIds);
 
+                const regData = await safeSelectSingle('unoric_regularizacion_estado', 'regularizado_hasta_anio, regularizado_hasta_fecha', 'cedula_socio', mensState.socio.cedula);
+                const regularizacion = regData ? { anio: regData.regularizado_hasta_anio, fecha: regData.regularizado_hasta_fecha } : null;
+
                 const lotes = await fetchLotesBySocio(mensState.socio.cedula);
                 mensState.loteCount = (lotes || []).length;
 
-                // Update header with lote count
-                const loteBadge = ` <span class="badge badge-info">Lotes: ${mensState.loteCount}</span>`;
-                socioInfo.innerHTML = `${mensState.socio.socio || ''} (Cédula: ${mensState.socio.cedula})${badge}${loteBadge}`;
+                // Actualizar Info del Socio con estilo consistente
+                const activo = mensState.socioActivo;
+                const statusColor = activo ? '#22c55e' : '#ef4444';
+                const statusIcon = activo ? 'fa-check-circle' : 'fa-times-circle';
+                const statusText = activo ? 'ACTIVO' : 'RETIRADO';
+                
+                socioInfo.style.display = 'block';
+                socioInfo.style.borderLeft = `4px solid ${statusColor}`;
+                socioInfo.style.paddingLeft = '12px';
+                socioInfo.style.paddingTop = '8px';
+                socioInfo.style.paddingBottom = '8px';
+                socioInfo.style.marginBottom = '1.5rem';
 
-                const built = buildMensualidadItems(mensState.pagos, mensState.loteCount);
-                mensState.items = built.items;
-                mensState.defaultMonto = built.defaultMonto;
+                socioInfo.innerHTML = `
+                    <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                        <div style="font-size: 1.1rem; font-weight: 800; color: var(--primary-color); text-transform: uppercase;">${mensState.socio.socio}</div>
+                        <span class="badge" style="background: ${statusColor}15; color: ${statusColor}; border: 1px solid ${statusColor}30; font-size: 0.65rem; padding: 4px 8px;">
+                            <i class="fas ${statusIcon} mr-1"></i> ${statusText}
+                        </span>
+                        <span class="badge badge-info" style="font-size: 0.65rem; padding: 4px 8px;">
+                            <i class="fas fa-home mr-1"></i> Lotes: ${mensState.loteCount}
+                        </span>
+                    </div>
+                    <div class="text-xs text-muted mt-2" style="display: flex; gap: 12px; align-items: center;">
+                        <span><i class="fas fa-id-card mr-1"></i> ${mensState.socio.cedula}</span>
+                        ${mensState.socio.socio_desde ? `<span><i class="far fa-calendar-alt mr-1"></i> Desde: <strong>${mensState.socio.socio_desde}</strong></span>` : ''}
+                    </div>
+                `;
+
+                mensState.items = buildMensualidadItems(mensState.pagos, mensState.loteCount, mensState.tarifasPorAnio, mensState.mensualidadTipoMontoBase, mensState.socio.socio_desde, regularizacion);
                 renderMensualidadItems(mensState.items);
 
                 updateDashboard();
@@ -3662,9 +4537,7 @@ async function initMensualidadModule() {
 
                 // Refresh
                 mensState.pagos = await fetchPagosBasePorSocio(mensState.socio.cedula, mensState.mensualidadTipoIds);
-                const built = buildMensualidadItems(mensState.pagos, mensState.loteCount);
-                mensState.items = built.items;
-                mensState.defaultMonto = built.defaultMonto;
+                mensState.items = buildMensualidadItems(mensState.pagos, mensState.loteCount, mensState.tarifasPorAnio, mensState.mensualidadTipoMontoBase, mensState.socio.socio_desde);
                 renderMensualidadItems(mensState.items);
                 resetSelection();
             } catch (err) {
@@ -3783,17 +4656,30 @@ function renderSociosTable(socios) {
 // ==========================================
 // LOTES MODULE LOGIC
 // ==========================================
-let allLotes = [];
-let filteredLotes = [];
 
 async function initLotesModule() {
     const tableBody = document.getElementById('lotes-table-body');
     const totalLotesEl = document.getElementById('total-lotes');
+    const lotesSinSocioEl = document.getElementById('lotes-sin-socio');
     const lotesPromesaEl = document.getElementById('lotes-promesa');
     const lotesIncompleteEl = document.getElementById('lotes-incomplete');
     const searchInput = document.getElementById('search-lotes');
     const filterEtapa = document.getElementById('filter-lote-etapa');
     const filterEstado = document.getElementById('filter-lote-estado');
+
+    // Cards para filtrado rápido
+    const cardTotal = document.getElementById('card-total-lotes');
+    const cardSinSocio = document.getElementById('card-lotes-sin-socio');
+    const cardPromesa = document.getElementById('card-lotes-promesa');
+    const cardIncomplete = document.getElementById('card-lotes-incomplete');
+
+    // Botón Nuevo Lote
+    const btnNuevo = document.getElementById('btn-nuevo-lote');
+    const modalLote = document.getElementById('modal-lote');
+    const formLote = document.getElementById('form-lote');
+    const closeLote = document.getElementById('close-modal-lote');
+    const cancelLote = document.getElementById('btn-cancelar-lote');
+    const socioSelect = document.getElementById('lote-socio');
 
     beginLoading('Cargando lotes...');
     try {
@@ -3803,32 +4689,43 @@ async function initLotesModule() {
         const { data: lotes, error: lotesError } = await client
             .from('unoric_lotes')
             .select('*')
-            .order('lote', { ascending: true }); // Sort by lote ascending
+            .order('lote', { ascending: true });
 
         if (lotesError) throw lotesError;
 
-        // Fetch Socios (to get names)
+        // Fetch Socios
         const { data: socios, error: sociosError } = await client
             .from('unoric_socios')
-            .select('cedula, socio');
+            .select('cedula, socio, celular, correo')
+            .order('socio', { ascending: true });
 
         if (sociosError) throw sociosError;
 
-        // Create a map for quick socio lookup
+        // Llenar select de socios
+        if (socioSelect) {
+            socioSelect.innerHTML = '<option value="">-- Sin Socio (Disponible) --</option>' +
+                socios.map(s => `<option value="${s.cedula}">${s.socio} (${s.cedula})</option>`).join('');
+            
+            // Auto-completar datos al seleccionar socio
+            socioSelect.addEventListener('change', (e) => {
+                const cedula = e.target.value;
+                const socio = socios.find(s => s.cedula === cedula);
+                if (socio) {
+                    document.getElementById('lote-celular').value = socio.celular || '';
+                    document.getElementById('lote-correo').value = socio.correo || '';
+                }
+            });
+        }
+
+        // Map para lookup rápido
         const sociosMap = new Map(socios.map(s => [s.cedula, s.socio]));
 
         // Process Data
         allLotes = lotes.map(lote => {
-            const socioName = sociosMap.get(lote.socio) || 'Desconocido';
-
-            // Check for invalid contact info (using lote's contact info if available, or fallback logic if needed)
-            // Assuming the lote table has the contact info snapshot or we should check the socio's current info?
-            // The requirement says "actualizar datos de celular o de correo", implying we check the data in the row.
-            // The CSV import put contact info in the lotes table too.
-
-            const invalidPhone = lote.celular === '999999999';
+            const socioName = lote.socio ? (sociosMap.get(lote.socio) || 'Socio no encontrado') : 'Disponible';
+            const invalidPhone = lote.celular === '999999999' || !lote.celular;
             const invalidEmail = !lote.correo || lote.correo.includes('sin@correo') || lote.correo.includes('actualizar@correo');
-            const needsUpdate = invalidPhone || invalidEmail;
+            const needsUpdate = lote.socio && (invalidPhone || invalidEmail);
 
             return {
                 ...lote,
@@ -3841,6 +4738,7 @@ async function initLotesModule() {
 
         // Update Stats
         totalLotesEl.textContent = allLotes.length;
+        if (lotesSinSocioEl) lotesSinSocioEl.textContent = allLotes.filter(l => !l.socio).length;
         lotesPromesaEl.textContent = allLotes.filter(l => l.promesa === 'SI').length;
         lotesIncompleteEl.textContent = allLotes.filter(l => l.needsUpdate).length;
 
@@ -3853,12 +4751,153 @@ async function initLotesModule() {
         filterEtapa.addEventListener('change', (e) => filterLotes(searchInput.value, e.target.value, filterEstado.value));
         filterEstado.addEventListener('change', (e) => filterLotes(searchInput.value, filterEtapa.value, e.target.value));
 
+        // Filtrado rápido por tarjetas
+        cardTotal?.addEventListener('click', () => { 
+            searchInput.value = ''; filterEtapa.value = 'all'; filterEstado.value = 'all';
+            filterLotes('', 'all', 'all');
+        });
+        cardSinSocio?.addEventListener('click', () => {
+             searchInput.value = ''; filterEtapa.value = 'all'; filterEstado.value = 'all';
+             filteredLotes = allLotes.filter(l => !l.socio);
+             renderLotesTable(filteredLotes);
+        });
+        cardPromesa?.addEventListener('click', () => {
+             searchInput.value = ''; filterEtapa.value = 'all'; filterEstado.value = 'all';
+             filteredLotes = allLotes.filter(l => l.promesa === 'SI');
+             renderLotesTable(filteredLotes);
+        });
+        cardIncomplete?.addEventListener('click', () => {
+            searchInput.value = ''; filterEtapa.value = 'all'; filterEstado.value = 'all';
+            filteredLotes = allLotes.filter(l => l.needsUpdate);
+            renderLotesTable(filteredLotes);
+        });
+
+        btnNuevo?.addEventListener('click', () => abrirModalLote());
+        closeLote?.addEventListener('click', () => modalLote.classList.add('hidden'));
+        cancelLote?.addEventListener('click', () => modalLote.classList.add('hidden'));
+
+        formLote?.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            await saveLote();
+        });
+
     } catch (error) {
         console.error(error);
-        tableBody.innerHTML = `<tr><td colspan="6" class="text-center error-message">Error cargando datos: ${error.message}</td></tr>`;
+        if (tableBody) tableBody.innerHTML = `<tr><td colspan="6" class="text-center error-message">Error cargando datos: ${error.message}</td></tr>`;
     } finally {
         endLoading();
     }
+}
+
+function abrirModalLote(lote = null) {
+    const modal = document.getElementById('modal-lote');
+    const title = document.getElementById('modal-lote-title');
+    const form = document.getElementById('form-lote');
+    const msg = document.getElementById('lote-msg');
+
+    msg.classList.add('hidden');
+    form.reset();
+
+    if (lote) {
+        title.textContent = 'Editar Lote ' + lote.lote;
+        document.getElementById('lote-id-hidden').value = lote.id_lote;
+        document.getElementById('lote-etapa').value = lote.etapa;
+        document.getElementById('lote-numero').value = lote.lote;
+        document.getElementById('lote-socio').value = lote.socio || '';
+        document.getElementById('lote-celular').value = lote.celular || '';
+        document.getElementById('lote-correo').value = lote.correo || '';
+        document.getElementById('lote-promesa').value = lote.promesa || 'NO';
+    } else {
+        title.textContent = 'Registrar Nuevo Lote';
+        document.getElementById('lote-id-hidden').value = '';
+    }
+
+    modal.classList.remove('hidden');
+}
+
+async function saveLote() {
+    const id = document.getElementById('lote-id-hidden').value;
+    const etapa = document.getElementById('lote-etapa').value;
+    const numero = document.getElementById('lote-numero').value;
+    const socio = document.getElementById('lote-socio').value;
+    const celular = document.getElementById('lote-celular').value;
+    const correo = document.getElementById('lote-correo').value;
+    const promesa = document.getElementById('lote-promesa').value;
+    const msgEl = document.getElementById('lote-msg');
+
+    const payload = {
+        etapa: parseInt(etapa),
+        lote: parseInt(numero),
+        socio: socio || null,
+        celular,
+        correo,
+        promesa
+    };
+
+    await withLoader(id ? 'Actualizando lote...' : 'Registrando lote...', async () => {
+        try {
+            const client = getSupabaseClient();
+            
+            // Logica de cambio de propietario: el socio anterior se retira del lote,
+            // pero el nuevo dueño puede conservar otros lotes que ya posee.
+            let result;
+            if (id) {
+                const oldLote = allLotes.find(l => l.id_lote === id);
+                const oldSocio = oldLote ? oldLote.socio : null;
+                const newSocio = payload.socio;
+
+                if (oldSocio !== newSocio) {
+                    // Si el lote ya tenía un dueño, confirmar el traspaso
+                    if (oldSocio && newSocio) {
+                        const ok = await showConfirm('Confirmar Traspaso', 
+                            `El Lote ${oldLote.lote} cambiará de propietario (${oldLote.socioName} → ${newSocio}). ¿Desea continuar?`);
+                        if (!ok) return;
+                    }
+
+                    // 1. Cerrar historial del socio anterior en este lote
+                    if (oldSocio) {
+                        await client.from('unoric_historial_lotes')
+                            .update({ fecha_hasta: new Date().toISOString().split('T')[0], activo: false })
+                            .eq('id_lote', id)
+                            .eq('cedula_socio', oldSocio)
+                            .eq('activo', true);
+                    }
+
+                    // 2. Abrir historial del nuevo socio en este lote
+                    if (newSocio) {
+                        await client.from('unoric_historial_lotes').insert([{
+                            id_lote: id,
+                            cedula_socio: newSocio,
+                            fecha_desde: new Date().toISOString().split('T')[0],
+                            activo: true
+                        }]);
+                    }
+                }
+                result = await client.from('unoric_lotes').update(payload).eq('id_lote', id).select();
+            } else {
+                result = await client.from('unoric_lotes').insert([payload]).select();
+                const newId = result.data?.[0]?.id_lote;
+                if (newId && payload.socio) {
+                    // Abrir historial para nuevo lote
+                    await client.from('unoric_historial_lotes').insert([{
+                        id_lote: newId,
+                        cedula_socio: payload.socio,
+                        fecha_desde: new Date().toISOString().split('T')[0],
+                        activo: true
+                    }]);
+                }
+            }
+
+            if (result.error) throw result.error;
+
+            document.getElementById('modal-lote').classList.add('hidden');
+            showAlert('Éxito', id ? 'Lote actualizado correctamente.' : 'Lote registrado correctamente.');
+            await initLotesModule(); // Recargar todo
+
+        } catch (err) {
+            setInlineMessage(msgEl, err.message, 'error');
+        }
+    });
 }
 
 function filterLotes(searchTerm, etapa, estado) {
@@ -3925,6 +4964,10 @@ function renderLotesTable(lotes) {
         const phoneIcon = lote.invalidPhone ? '<i class="fas fa-exclamation-circle"></i>' : '<i class="fas fa-phone"></i>';
         const emailIcon = lote.invalidEmail ? '<i class="fas fa-exclamation-circle"></i>' : '<i class="fas fa-envelope"></i>';
 
+        const btnLabel = lote.socio ? 'Editar' : 'Asignar Socio';
+        const btnClass = lote.socio ? 'btn-primary' : 'btn-success';
+        const btnIcon = lote.socio ? 'fa-edit' : 'fa-user-plus';
+
         return `
             <tr>
                 <td>
@@ -3935,15 +4978,15 @@ function renderLotesTable(lotes) {
                 </td>
                 <td>
                     <div class="socio-name">${lote.socioName}</div>
-                    <div class="socio-cedula"><i class="far fa-id-card"></i> ${lote.socio}</div>
+                    <div class="socio-cedula"><i class="far fa-id-card"></i> ${lote.socio || 'Sin asignar'}</div>
                 </td>
                 <td>
                     <div class="contact-info">
                         <div class="contact-item ${phoneClass}">
-                            ${phoneIcon} ${lote.celular}
+                            ${phoneIcon} ${lote.celular || '---'}
                         </div>
                         <div class="contact-item ${emailClass}">
-                            ${emailIcon} ${lote.correo}
+                            ${emailIcon} ${lote.correo || '---'}
                         </div>
                     </div>
                 </td>
@@ -3954,12 +4997,861 @@ function renderLotesTable(lotes) {
                 </td>
                 <td>${statusBadge}</td>
                 <td>
-                    <button class="btn btn-primary btn-sm" onclick="alert('Editar lote: ${lote.lote}')">
-                        <i class="fas fa-edit"></i>
+                    <button class="btn ${btnClass} btn-sm btn-edit-lote" data-id="${lote.id_lote}">
+                        <i class="fas ${btnIcon}"></i> ${btnLabel}
                     </button>
                 </td>
             </tr>
         `;
     }).join('');
+
+    // Attach event listeners to edit buttons
+    tableBody.querySelectorAll('.btn-edit-lote').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const id = btn.getAttribute('data-id');
+            const lote = allLotes.find(l => l.id_lote === id);
+            if (lote) abrirModalLote(lote);
+        });
+    });
+}
+
+// ==========================================
+// CONVOCATORIAS MODULE
+// ==========================================
+let evoState = {
+    eventos: [],
+    selectedEvento: null,
+    asistencias: []
+};
+
+async function initConvocatoriasModule() {
+    const btnNueva = document.getElementById('btn-nueva-convocatoria');
+    const eventosBody = document.getElementById('eventos-body');
+    const modalEvo = document.getElementById('modal-evento');
+    const formEvo = document.getElementById('form-evento');
+    const closeEvo = document.getElementById('close-modal-evento');
+    const cancelEvo = document.getElementById('btn-cancelar-evento');
+    const msgEl = document.getElementById('evento-msg');
+
+    const alcanceSelect = document.getElementById('evo-alcance');
+    const manualContainer = document.getElementById('manual-selection-container');
+    const manualSearch = document.getElementById('manual-socio-search');
+    const manualList = document.getElementById('manual-socios-list');
+    const alfaContainer = document.getElementById('alfa-range-container');
+
+    const seccionAsistencia = document.getElementById('seccion-asistencia');
+    const asistenciaBody = document.getElementById('asistencia-body');
+    const btnVolverEvos = document.getElementById('btn-volver-eventos');
+    const searchAsis = document.getElementById('asistencia-search');
+    const btnFinalizar = document.getElementById('btn-finalizar-evento');
+    const btnDescargar = document.getElementById('btn-descargar-asistencia');
+
+    await loadEventos();
+
+    // Permitir actualización externa (poller) para el listado de eventos
+    window.refreshConvocatorias = async () => {
+        if (currentViewName === 'convocatorias') {
+            await loadEventos();
+        }
+    };
+
+    // Auto-abrir evento si venimos de un botón "VIVO"
+    if (window.autoOpenEventoId) {
+        const targetId = window.autoOpenEventoId;
+        window.autoOpenEventoId = null; // Limpiar
+        const ev = evoState.eventos.find(ex => ex.id === targetId);
+        if (ev) abrirControlAsistencia(ev);
+    }
+
+    btnNueva?.addEventListener('click', () => {
+        formEvo.reset();
+        document.getElementById('evo-fecha').value = todayISODate();
+        document.getElementById('evo-hora-inicio').value = '08:00';
+        document.getElementById('evo-hora-lista').value = '08:15';
+        if (alcanceSelect) alcanceSelect.value = 'GENERAL';
+        manualContainer?.classList.add('hidden');
+        alfaContainer?.classList.add('hidden');
+        modalEvo?.classList.remove('hidden');
+    });
+
+    alcanceSelect?.addEventListener('change', () => {
+        const val = alcanceSelect.value;
+        manualContainer?.classList.toggle('hidden', val !== 'MANUAL');
+        alfaContainer?.classList.toggle('hidden', val !== 'ALFABETICO');
+        
+        if (val === 'MANUAL') {
+            renderManualSociosList();
+        }
+    });
+
+    manualSearch?.addEventListener('input', () => {
+        renderManualSociosList(manualSearch.value);
+    });
+
+    function renderManualSociosList(filtro = '') {
+        const socios = getSociosQuickList();
+        const f = normalizeText(filtro);
+        
+        const filtered = socios.filter(s => 
+            normalizeText(s.socio).includes(f) || 
+            s.cedula.includes(f)
+        );
+
+        if (manualList) {
+            manualList.innerHTML = filtered.map(s => `
+                <label style="display: flex; align-items: center; gap: 8px; font-size: 0.8rem; padding: 4px; border-bottom: 1px solid #f0f0f0; cursor: pointer;">
+                    <input type="checkbox" name="manual-socio" value="${s.cedula}">
+                    <span class="truncate" title="${s.socio}">${s.socio}</span>
+                </label>
+            `).join('');
+        }
+    }
+
+    closeEvo?.addEventListener('click', () => modalEvo.classList.add('hidden'));
+    cancelEvo?.addEventListener('click', () => modalEvo.classList.add('hidden'));
+
+    formEvo?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        await saveEvento();
+    });
+
+    btnVolverEvos?.addEventListener('click', () => {
+        seccionAsistencia?.classList.add('hidden');
+        document.querySelector('.card.mb-6')?.classList.remove('hidden');
+        btnNueva?.parentElement?.parentElement?.classList.remove('hidden');
+    });
+
+    searchAsis?.addEventListener('input', () => {
+        renderAsistencias(searchAsis.value.trim());
+    });
+
+    btnFinalizar?.addEventListener('click', async () => {
+        if (!evoState.selectedEvento) return;
+        
+        const ok = await showConfirm(`Finalizar ${evoState.selectedEvento.tipo}`, 
+            `Esto cerrará la lista permanentemente y generará multas de $${evoState.selectedEvento.multa_ausencia} a los ausentes. ¿Continuar?`);
+        
+        if (!ok) return;
+
+        await withLoader('Finalizando evento y procesando multas...', async () => {
+            try {
+                if (evoState.selectedEvento.multa_ausencia > 0) {
+                    const ausentes = evoState.asistencias.filter(x => x.estado === 'AUSENTE');
+                    await procesarMultasEventos(evoState.selectedEvento, ausentes);
+                }
+
+                const client = getSupabaseClient();
+                const { error } = await client.from('unoric_eventos').update({ estado: 'FINALIZADO' }).eq('id', evoState.selectedEvento.id);
+                if (error) throw error;
+
+                evoState.selectedEvento.estado = 'FINALIZADO';
+                showAlert('Éxito', 'Evento finalizado y multas generadas.');
+                btnVolverEvos?.click();
+                await loadEventos();
+                updateLiveEventButtons();
+            } catch (err) {
+                console.error(err);
+                showAlert('Error', 'Hubo un problema al finalizar el evento: ' + err.message);
+            }
+        });
+    });
+
+    btnDescargar?.addEventListener('click', async () => {
+        if (!evoState.selectedEvento) return;
+        await exportAsistenciaPDF(evoState.selectedEvento, evoState.asistencias);
+    });
+
+    async function loadEventos() {
+        const client = getSupabaseClient();
+        const { data, error } = await client
+            .from('unoric_eventos')
+            .select('*')
+            .order('fecha', { ascending: false })
+            .order('hora_inicio', { ascending: false });
+        
+        if (error) {
+            console.error(error);
+            return;
+        }
+
+        evoState.eventos = data || [];
+        renderEventos();
+    }
+
+    async function exportAsistenciaPDF(evento, asistencias) {
+        await withLoader('Generando Acta de Asistencia...', async () => {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF('p', 'mm', 'a4');
+            const pageWidth = doc.internal.pageSize.getWidth();
+            const margin = 15; 
+            const logoUrl = 'https://i.ibb.co/rRLTLtty/Gemini-Generated-Image-yqe70kyqe70kyqe7.png';
+
+            // --- HEADER ---
+            try {
+                // Usamos formato PNG con canal alfa para transparencia real
+                doc.addImage(logoUrl, 'PNG', margin, 10, 22, 22, undefined, 'FAST');
+            } catch (e) { 
+                console.error('Logo error:', e); 
+            }
+
+            doc.setTextColor(2, 48, 185); // Institucional Blue
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(18);
+            doc.text("UNORIC R.Q.E - '4 DE JULIO'", pageWidth / 2, 22, { align: 'center' });
+            
+            doc.setFontSize(14);
+            doc.text('ACTA DE CONTROL DE ASISTENCIA', pageWidth / 2, 31, { align: 'center' });
+            
+            doc.setDrawColor(2, 48, 185);
+            doc.setLineWidth(0.5);
+            doc.line(margin, 38, pageWidth - margin, 38);
+
+            // --- EVENT DETAILS ---
+            doc.setTextColor(60, 60, 60);
+            doc.setFontSize(10);
+            doc.setFont('helvetica', 'bold');
+            doc.text('DATOS DEL EVENTO', margin, 48);
+            
+            doc.setFont('helvetica', 'normal');
+            doc.text(`TIPO:`, margin, 55);
+            doc.setFont('helvetica', 'bold');
+            doc.text(`${evento.tipo}`, margin + 35, 55);
+            
+            doc.setFont('helvetica', 'normal');
+            doc.text(`MOTIVO:`, margin, 60);
+            doc.setFont('helvetica', 'bold');
+            doc.text(`${evento.descripcion}`, margin + 35, 60);
+
+            doc.setFont('helvetica', 'normal');
+            doc.text(`FECHA:`, margin, 65);
+            doc.setFont('helvetica', 'bold');
+            doc.text(`${formatDateLong(evento.fecha)}`, margin + 35, 65);
+
+            doc.setFont('helvetica', 'normal');
+            doc.text(`HORARIO:`, margin, 70);
+            doc.setFont('helvetica', 'bold');
+            doc.text(`${evento.hora_inicio} (Toma de lista: ${evento.hora_toma_lista})`, margin + 35, 70);
+
+            doc.setFont('helvetica', 'normal');
+            doc.text(`ALCANCE:`, margin, 75);
+            doc.setFont('helvetica', 'bold');
+            doc.text(`${evento.alcance}`, margin + 35, 75);
+
+            doc.setFont('helvetica', 'normal');
+            doc.text(`VALOR MULTA:`, margin, 80);
+            doc.setFont('helvetica', 'bold');
+            const multaTexto = evento.multa_ausencia > 0 ? `$${evento.multa_ausencia}` : 'Sin multa';
+            doc.text(multaTexto, margin + 35, 80);
+
+            // --- SUMMARY BOX ---
+            const stats = {
+                P: asistencias.filter(x => x.estado === 'PUNTUAL').length,
+                A: asistencias.filter(x => x.estado === 'ATRASADO').length,
+                J: asistencias.filter(x => x.estado === 'JUSTIFICADO').length,
+                U: asistencias.filter(x => x.estado === 'AUSENTE').length,
+                T: asistencias.length
+            };
+
+            doc.setFillColor(245, 247, 251);
+            doc.rect(pageWidth - 85, 45, 65, 38, 'F');
+            doc.setFontSize(9);
+            doc.setTextColor(2, 48, 185);
+            doc.setFont('helvetica', 'bold');
+            doc.text('RESUMEN ESTADÍSTICO', pageWidth - 80, 52);
+            
+            doc.setFont('helvetica', 'normal');
+            doc.setTextColor(0, 0, 0);
+            doc.text(`PRESENTES:   ${stats.P}`, pageWidth - 80, 58);
+            doc.text(`ATRASADOS:   ${stats.A}`, pageWidth - 80, 63);
+            doc.text(`JUSTIFICADOS: ${stats.J}`, pageWidth - 80, 68);
+            doc.text(`AUSENTES:     ${stats.U}`, pageWidth - 80, 73);
+            doc.text(`TOTAL:        ${stats.T}`, pageWidth - 80, 79);
+
+            // --- TABLE OF ATTENDEES ---
+            const list = getSociosQuickList();
+            const categories = [
+                { title: 'PRESENTES / PUNTUALES', status: 'PUNTUAL', color: [16, 185, 129] },
+                { title: 'ATRASOS', status: 'ATRASADO', color: [245, 158, 11] },
+                { title: 'JUSTIFICADOS', status: 'JUSTIFICADO', color: [59, 130, 246] },
+                { title: 'AUSENCIAS', status: 'AUSENTE', color: [239, 68, 68] }
+            ];
+
+            let finalY = 88;
+
+            for (const cat of categories) {
+                const filtered = asistencias.filter(x => x.estado === cat.status).map(as => {
+                    const socio = list.find(s => s.cedula === as.cedula_socio);
+                    return [
+                        as.cedula_socio,
+                        socio?.socio || 'N/A',
+                        as.hora_llegada ? new Date(as.hora_llegada).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—',
+                        as.estado
+                    ];
+                });
+
+                if (filtered.length > 0) {
+                    doc.autoTable({
+                        startY: finalY + 5,
+                        head: [[{ content: cat.title, colSpan: 4, styles: { fillColor: cat.color, halign: 'center' } }],
+                               ['Cédula', 'Socio', 'H. Llegada', 'Observación']],
+                        body: filtered,
+                        theme: 'striped',
+                        headStyles: { fillColor: [40, 40, 40], fontSize: 9 },
+                        styles: { fontSize: 8, cellPadding: 2 },
+                        columnStyles: { 0: { cellWidth: 30 }, 2: { cellWidth: 30 }, 3: { cellWidth: 30 } }
+                    });
+                    finalY = doc.lastAutoTable.finalY + 5;
+                }
+            }
+
+            // --- FOOTER / SIGNATURES ---
+            if (finalY > 250) { doc.addPage(); finalY = 20; }
+            
+            const sigY = finalY + 25;
+            doc.line(margin + 10, sigY, margin + 70, sigY);
+            doc.text('PRESIDENTE / SECRETARIO', margin + 40, sigY + 5, { align: 'center' });
+            
+            doc.line(pageWidth - margin - 70, sigY, pageWidth - margin - 10, sigY);
+            doc.text('RESPONSABLE DE ACTA', pageWidth - margin - 40, sigY + 5, { align: 'center' });
+
+            doc.setFontSize(7);
+            doc.setTextColor(150, 150, 150);
+            const footerText = `Documento generado por Sistema UNORIC - ${new Date().toLocaleString()}`;
+            doc.text(footerText, pageWidth / 2, 285, { align: 'center' });
+
+            doc.save(`ACTA_${evento.tipo}_${evento.fecha}.pdf`);
+        });
+    }
+
+    function renderEventos() {
+        if (evoState.eventos.length === 0) {
+            eventosBody.innerHTML = '<tr><td colspan="5" class="text-center p-8">No hay eventos registrados.</td></tr>';
+            return;
+        }
+
+        const now = new Date();
+
+        eventosBody.innerHTML = evoState.eventos.map(ev => {
+            // Determinar estado efectivo basado en fecha/hora
+            let effectiveStatus = ev.estado;
+            if (effectiveStatus !== 'FINALIZADO' && effectiveStatus !== 'CANCELADO') {
+                const eventDateTime = new Date(`${ev.fecha}T${ev.hora_inicio}`);
+                if (now >= eventDateTime) {
+                    effectiveStatus = 'EN_CURSO';
+                }
+            }
+
+            const statusClass = effectiveStatus === 'FINALIZADO' ? 'badge-success' : 
+                               (effectiveStatus === 'CANCELADO' ? 'badge-danger' : 
+                               (effectiveStatus === 'EN_CURSO' ? 'badge-info' : 'badge-warning'));
+            const statusText = effectiveStatus.replace('_', ' ');
+
+            const iconMap = {
+                'MINGA': 'fa-tools',
+                'ASAMBLEA': 'fa-users',
+                'SESIÓN': 'fa-briefcase',
+                'SESIÓN EXTRAORDINARIA': 'fa-gavel',
+                'EVENTO SOCIAL': 'fa-glass-cheers'
+            };
+            const icon = iconMap[ev.tipo] || 'fa-handshake';
+
+            return `
+                <tr>
+                    <td>
+                        <div class="font-bold">${ev.fecha}</div>
+                        <div class="text-xs text-muted"><i class="far fa-clock"></i> ${ev.hora_inicio}</div>
+                    </td>
+                    <td>
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <div style="width: 35px; height: 35px; border-radius: 8px; background: rgba(2,48,185,0.1); color: var(--primary-color); display: flex; align-items: center; justify-content: center;">
+                                <i class="fas ${icon}"></i>
+                            </div>
+                            <div>
+                                <div class="font-bold text-primary">${ev.tipo}</div>
+                                <div class="text-sm">${ev.descripcion}</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td><span class="badge" style="background:#e0e7ff; color:#4338ca; font-size: 0.65rem;">${ev.alcance}</span></td>
+                    <td><span class="badge ${statusClass}">${statusText}</span></td>
+                    <td>
+                        <div style="display: flex; gap: 5px;">
+                            ${effectiveStatus === 'PENDIENTE' ? `
+                                <button class="btn btn-secondary btn-sm btn-cancelar-evento" data-id="${ev.id}" title="Cancelar Evento" style="padding: 6px 10px; font-size: 0.75rem; color: #dc2626; border-color: #fca5a5;">
+                                    <i class="fas fa-ban"></i>
+                                </button>
+                            ` : ''}
+                            ${effectiveStatus !== 'CANCELADO' ? `
+                                <button class="btn btn-primary btn-sm btn-gestion-asistencia" data-id="${ev.id}" style="padding: 6px 12px; font-size: 0.75rem;">
+                                    <i class="fas fa-clipboard-list mr-1"></i>${ev.estado === 'PENDIENTE' ? 'Iniciar Lista' : 'Gestionar'}
+                                </button>
+                            ` : ''}
+                            <button class="btn btn-secondary btn-sm btn-share-whatsapp" data-id="${ev.id}" style="padding: 6px 10px; font-size: 0.75rem; border-color: #25D366; color: #128C7E;">
+                                <i class="fab fa-whatsapp"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+
+        eventosBody.querySelectorAll('.btn-gestion-asistencia').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const id = btn.getAttribute('data-id');
+                const evento = evoState.eventos.find(e => e.id === id);
+                if (evento) abrirControlAsistencia(evento);
+            });
+        });
+
+        eventosBody.querySelectorAll('.btn-cancelar-evento').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const id = btn.getAttribute('data-id');
+                const evento = evoState.eventos.find(e => e.id === id);
+                if (evento) {
+                    if (confirm(`¿Estás seguro de que deseas cancelar la convocatoria: ${evento.descripcion}?`)) {
+                        await cancelarEvento(evento.id);
+                    }
+                }
+            });
+        });
+
+        eventosBody.querySelectorAll('.btn-share-whatsapp').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const id = btn.getAttribute('data-id');
+                const evento = evoState.eventos.find(e => e.id === id);
+                if (evento) shareEventoWhatsApp(evento);
+            });
+        });
+    }
+
+    async function shareEventoWhatsApp(evento) {
+        if (evento.estado === 'FINALIZADO') {
+            showAlert('Aviso', 'No se pueden enviar recordatorios de eventos que ya han finalizado.', 'info');
+            return;
+        }
+
+        const now = new Date();
+        
+        // Parseo robusto de fecha y hora local
+        const [y, mm_orig, d] = evento.fecha.split('-').map(Number);
+        const [hh, min] = evento.hora_inicio.split(':').map(Number);
+        const eventDateTime = new Date(y, mm_orig - 1, d, hh, min);
+        
+        const isEnCurso = (evento.estado === 'PENDIENTE' && now >= eventDateTime);
+
+        const fechaLong = formatDateLong(evento.fecha);
+        const tipoEmos = {
+            'MINGA': '🛠️',
+            'ASAMBLEA': '👥',
+            'SESIÓN': '💼',
+            'SESIÓN EXTRAORDINARIA': '🚨',
+            'EVENTO SOCIAL': '🎉'
+        };
+        const emoj = tipoEmos[evento.tipo] || '📢';
+        
+        let msg = '';
+        if (evento.estado === 'CANCELADO') {
+            msg = `*AVISO: CONVOCATORIA CANCELADA* ❌\n`;
+            msg += `------------------------------------------\n\n`;
+            msg += `Se informa que la *${evento.tipo}* programada para el día _${fechaLong}_ ha sido *CANCELADA* hasta nuevo aviso.\n\n`;
+            msg += `📌 *Motivo:* ${evento.descripcion}\n\n`;
+            msg += `Sentimos los inconvenientes causados. 🙌`;
+            
+            const encoded = encodeURIComponent(msg);
+            window.open(`https://wa.me/?text=${encoded}`, '_blank');
+            return;
+        }
+
+        if (isEnCurso) {
+            msg = `*RECORDATORIO: ${evento.tipo} EN CURSO* 🔴\n`;
+            msg += `------------------------------------------\n\n`;
+            msg += `Se está llevando a cabo la *${evento.tipo}* que fue convocada para hoy. Si aún no ha llegado, le recordamos los detalles para su pronta asistencia:\n\n`;
+        } else {
+            msg = `*CONVOCATORIA: ${evento.tipo}* ${emoj}\n`;
+            msg += `------------------------------------------\n\n`;
+            msg += `Se convoca de carácter urgente a la *${evento.tipo}* que se llevará a cabo el día _${fechaLong}_.\n\n`;
+        }
+        
+        // Determinar alcance natural
+        let alcanceTexto = '';
+        const verbo = isEnCurso ? 'convocó' : 'convoca';
+        
+        if (evento.alcance === 'GENERAL') {
+            alcanceTexto = `✅ Se ${verbo} a *todos los socios* de la asociación.`;
+        } else if (evento.alcance.startsWith('ETAPA_')) {
+            const num = evento.alcance.split('_')[1];
+            alcanceTexto = `🏘️ Se ${verbo} a los socios pertenecientes a la *Etapa ${num}*.`;
+        } else if (evento.alcance === 'ALFABETICO' && evento.alcance_detalle) {
+            alcanceTexto = `🔤 Se ${verbo} a los socios cuyos apellidos empiecen desde la *${evento.alcance_detalle.split('-')[0]}* hasta la *${evento.alcance_detalle.split('-')[1]}* en orden alfabético.`;
+        } else if (evento.alcance === 'CON_LOTES') {
+            alcanceTexto = `🏡 Se ${verbo} a todos los socios que *poseen lotes* actualmente.`;
+        } else if (evento.alcance === 'MANUAL') {
+            // Obtener lista de nombres para manual
+            const client = getSupabaseClient();
+            const { data } = await client
+                .from('unoric_asistencias')
+                .select('unoric_socios(socio)')
+                .eq('evento_id', evento.id);
+            
+            const nombres = (data || []).map(x => x.unoric_socios?.socio).filter(Boolean).sort();
+            if (nombres.length > 0) {
+                alcanceTexto = `👥 *Socios convocados:*\n- ` + nombres.join('\n- ');
+            } else {
+                alcanceTexto = `👥 Se ${verbo} a un *grupo específico* de socios.`;
+            }
+        }
+
+        msg += `${alcanceTexto}\n\n`;
+        msg += `📍 *Lugar:* ${evento.lugar || 'Por definir'}\n`;
+        msg += `🚩 *Punto de encuentro:* ${evento.punto_encuentro || 'Por definir'}\n`;
+        msg += `⏰ *Hora de inicio:* ${evento.hora_inicio}\n`;
+        msg += `📝 *Motivo:* ${evento.descripcion}\n\n`;
+        
+        if (evento.multa_ausencia > 0) {
+            if (isEnCurso) {
+                msg += `⚠️ *IMPORTANTE:* No olvide que la inasistencia se sanciona con una multa de *$${evento.multa_ausencia}*.\n\n`;
+            } else {
+                msg += `⚠️ *NOTA:* La inasistencia injustificada tendrá una multa de *$${evento.multa_ausencia}*.\n\n`;
+            }
+        } else {
+            if (isEnCurso) {
+                if (evento.tipo.includes('SESIÓN') || evento.tipo === 'ASAMBLEA') {
+                    msg += `🗣️ *SU VOZ CUENTA:* Queremos escuchar sus ideas y participación activa, su presencia es vital para las decisiones de hoy.\n\n`;
+                } else if (evento.tipo === 'MINGA') {
+                    msg += `🤝 *TRABAJO EN EQUIPO:* Su colaboración es fundamental para el mantenimiento y bienestar de nuestra asociación.\n\n`;
+                } else if (evento.tipo === 'EVENTO SOCIAL') {
+                    msg += `🎉 *EL EVENTO YA EMPEZÓ:* Su presencia hará que este momento sea mucho más especial. ¡Venga a compartir!\n\n`;
+                } else {
+                    msg += `✨ *IMPORTANTE:* Recuerde que su asistencia es muy valiosa para la buena marcha de la asociación.\n\n`;
+                }
+            }
+        }
+
+        if (isEnCurso) {
+            msg += `¡Le esperamos pronto! Su presencia fortalece nuestra comunidad. 🙌✨`;
+        } else {
+            msg += `Favor asistir puntualmente. ¡Su participación es importante para la gestión de nuestra asociación! 🙌✨`;
+        }
+
+        // Abrir WhatsApp con el mensaje codificado
+        const encoded = encodeURIComponent(msg);
+        window.open(`https://wa.me/?text=${encoded}`, '_blank');
+    }
+
+    async function saveEvento() {
+        const alcance = document.getElementById('evo-alcance').value;
+        let manualSocios = [];
+        
+        if (alcance === 'MANUAL') {
+            const checked = manualList.querySelectorAll('input[name="manual-socio"]:checked');
+            manualSocios = Array.from(checked).map(c => c.value);
+            
+            if (manualSocios.length === 0) {
+                setInlineMessage(msgEl, 'Debes seleccionar al menos un socio para el alcance manual.', 'error');
+                return;
+            }
+        }
+
+        let alcanceDetalle = '';
+        if (alcance === 'ALFABETICO') {
+            const desde = document.getElementById('evo-alfa-inicio').value;
+            const hasta = document.getElementById('evo-alfa-fin').value;
+            alcanceDetalle = `${desde}-${hasta}`;
+        } else if (alcance.startsWith('ETAPA_')) {
+            alcanceDetalle = alcance.replace('ETAPA_', 'Etapa ');
+        }
+
+        const payload = {
+            tipo: document.getElementById('evo-tipo').value,
+            descripcion: document.getElementById('evo-descripcion').value,
+            fecha: document.getElementById('evo-fecha').value,
+            hora_inicio: document.getElementById('evo-hora-inicio').value,
+            hora_toma_lista: document.getElementById('evo-hora-lista').value,
+            multa_ausencia: parseFloat(document.getElementById('evo-multa').value),
+            lugar: document.getElementById('evo-lugar').value,
+            punto_encuentro: document.getElementById('evo-punto-encuentro').value,
+            alcance: alcance,
+            alcance_detalle: alcanceDetalle,
+            created_by: currentUser?.id
+        };
+
+        if (payload.multa_ausencia < 0) {
+            setInlineMessage(msgEl, 'La multa no puede ser negativa.', 'error');
+            return;
+        }
+
+        await withLoader('Creando convocatoria...', async () => {
+            try {
+                const client = getSupabaseClient();
+                const { data, error } = await client.from('unoric_eventos').insert([payload]).select();
+                if (error) throw error;
+                
+                const newEvento = data[0];
+
+                // Si es manual, generar asistencias de una vez para no "perder" la selección
+                if (alcance === 'MANUAL') {
+                    await generarAsistenciasIniciales(newEvento, manualSocios);
+                }
+
+                modalEvo.classList.add('hidden');
+                await loadEventos();
+                updateLiveEventButtons();
+                showAlert('Éxito', 'Convocatoria creada correctamente.');
+            } catch (err) {
+                setInlineMessage(msgEl, err.message, 'error');
+            }
+        });
+    }
+
+    async function cancelarEvento(eventoId) {
+        await withLoader('Cancelando convocatoria...', async () => {
+            try {
+                const client = getSupabaseClient();
+                const { error } = await client
+                    .from('unoric_eventos')
+                    .update({ estado: 'CANCELADO' })
+                    .eq('id', eventoId);
+
+                if (error) throw error;
+                
+                await loadEventos();
+                updateLiveEventButtons();
+                showAlert('Éxito', 'La convocatoria ha sido cancelada.');
+            } catch (err) {
+                showAlert('Error', 'No se pudo cancelar el evento: ' + err.message, 'error');
+            }
+        });
+    }
+
+    async function abrirControlAsistencia(evento) {
+        evoState.selectedEvento = evento;
+        document.getElementById('asistencia-evento-nombre').textContent = `${evento.tipo}: ${evento.descripcion}`;
+        
+        const cardEventos = document.querySelector('.card.mb-6');
+        const headerActions = btnNueva?.parentElement?.parentElement;
+        
+        if (cardEventos) cardEventos.classList.add('hidden');
+        if (headerActions) headerActions.classList.add('hidden');
+        seccionAsistencia?.classList.remove('hidden');
+
+        // Toggle buttons based on state
+        if (evento.estado === 'FINALIZADO') {
+            btnFinalizar?.classList.add('hidden');
+            btnDescargar?.classList.remove('hidden');
+        } else {
+            btnFinalizar?.classList.remove('hidden');
+            btnDescargar?.classList.add('hidden');
+        }
+
+        await withLoader('Cargando lista de socios...', async () => {
+            try {
+                await loadAsistencias(evento);
+            } catch (err) {
+                showAlert('Error', 'No se pudieron cargar las asistencias.');
+                btnVolverEvos.click();
+            }
+        });
+    }
+
+    async function loadAsistencias(evento) {
+        const client = getSupabaseClient();
+        
+        const { data: exist, error: errE } = await client
+            .from('unoric_asistencias')
+            .select('*')
+            .eq('evento_id', evento.id);
+        
+        if (errE) throw errE;
+
+        // Si no hay asistencias y NO es manual (las manuales se crean al guardar), generamos ahora
+        if (evento.estado === 'PENDIENTE' && exist.length === 0 && evento.alcance !== 'MANUAL') {
+            await generarAsistenciasIniciales(evento);
+            const { data: nuevo, error: errN } = await client
+                .from('unoric_asistencias')
+                .select('*')
+                .eq('evento_id', evento.id);
+            if (errN) throw errN;
+            evoState.asistencias = nuevo;
+            
+            await client.from('unoric_eventos').update({ estado: 'EN_CURSO' }).eq('id', evento.id);
+            evento.estado = 'EN_CURSO';
+            await loadEventos();
+        } else {
+            evoState.asistencias = exist;
+            // Si estaba pendiente pero ya tiene asistencias (ej manual), lo pasamos a EN_CURSO al abrirlo
+            if (evento.estado === 'PENDIENTE') {
+                 await client.from('unoric_eventos').update({ estado: 'EN_CURSO' }).eq('id', evento.id);
+                 evento.estado = 'EN_CURSO';
+            }
+        }
+
+        renderAsistencias();
+        updateAsistenciaStats();
+    }
+
+    async function generarAsistenciasIniciales(evento, sociosForManual = []) {
+        const list = getSociosQuickList();
+        let filtrados = [];
+
+        if (evento.alcance === 'MANUAL') {
+            filtrados = list.filter(s => sociosForManual.includes(s.cedula));
+        } else if (evento.alcance.startsWith('ETAPA_')) {
+            const etapaNum = parseInt(evento.alcance.split('_')[1]);
+            filtrados = list.filter(s => {
+                const socioLotes = allLotes.filter(l => l.socio === s.cedula);
+                return socioLotes.some(l => l.etapa === etapaNum);
+            });
+        } else if (evento.alcance === 'CON_LOTES') {
+            filtrados = list.filter(s => {
+                return allLotes.some(l => l.socio === s.cedula);
+            });
+        } else if (evento.alcance === 'ALFABETICO') {
+            const start = (document.getElementById('evo-alfa-inicio')?.value || 'A').toUpperCase();
+            const end = (document.getElementById('evo-alfa-fin')?.value || 'Z').toUpperCase();
+            
+            filtrados = list.filter(s => {
+                const init = normalizeText(s.socio).charAt(0).toUpperCase();
+                return init >= start && init <= end;
+            });
+        } else {
+            // DEFAULT: GENERAL
+            filtrados = list;
+        }
+
+        if (filtrados.length === 0) return;
+
+        const payload = filtrados.map(s => ({
+            evento_id: evento.id,
+            cedula_socio: s.cedula,
+            estado: 'AUSENTE',
+            multa_aplicada: evento.multa_ausencia
+        }));
+
+        const client = getSupabaseClient();
+        for (let i = 0; i < payload.length; i += 100) {
+            const { error } = await client.from('unoric_asistencias').insert(payload.slice(i, i + 100));
+            if (error) console.error('Error insertando asistencia chunk:', error);
+        }
+    }
+
+    function renderAsistencias(filtro = '') {
+        const body = document.getElementById('asistencia-body');
+        const list = getSociosQuickList();
+        
+        let filtered = evoState.asistencias.map(as => {
+            const socio = list.find(s => s.cedula === as.cedula_socio);
+            return { ...as, socioName: socio?.socio || 'N/A' };
+        });
+
+        if (filtro) {
+            const f = normalizeText(filtro);
+            filtered = filtered.filter(x => 
+                normalizeText(x.socioName).includes(f) || 
+                x.cedula_socio.includes(f)
+            );
+        }
+
+        if (filtered.length === 0) {
+            body.innerHTML = '<tr><td colspan="5" class="text-center p-4">No hay socios que coincidan con la búsqueda.</td></tr>';
+            return;
+        }
+
+        const rowDisabled = evoState.selectedEvento.estado === 'FINALIZADO';
+        body.innerHTML = filtered.map(as => {
+            const colorClass = as.estado === 'PUNTUAL' ? 'success' : (as.estado === 'ATRASADO' ? 'warning' : (as.estado === 'JUSTIFICADO' ? 'info' : 'danger'));
+            return `
+                <tr>
+                    <td><div class="font-bold uppercase" style="font-size: 0.9rem;">${as.socioName}</div></td>
+                    <td>
+                        <div class="text-sm text-muted">${as.cedula_socio}</div>
+                    </td>
+                    <td><div class="text-xs">${as.hora_llegada ? new Date(as.hora_llegada).toLocaleTimeString() : '—'}</div></td>
+                    <td><span class="badge badge-${colorClass}" style="min-width: 80px; text-align: center;">${as.estado}</span></td>
+                    <td>
+                        <div class="btn-group" style="display: flex; gap: 4px;">
+                            <button class="btn btn-success btn-sm btn-mark" data-cedula="${as.cedula_socio}" data-status="PUNTUAL" ${rowDisabled ? 'disabled' : ''} title="Presente">
+                                <i class="fas fa-check"></i>
+                            </button>
+                            <button class="btn btn-warning btn-sm btn-mark" data-cedula="${as.cedula_socio}" data-status="ATRASADO" ${rowDisabled ? 'disabled' : ''} title="Atrasado">
+                                <i class="fas fa-clock"></i>
+                            </button>
+                            <button class="btn btn-info btn-sm btn-mark" data-cedula="${as.cedula_socio}" data-status="JUSTIFICADO" ${rowDisabled ? 'disabled' : ''} title="Justificar">
+                                <i class="fas fa-notes-medical"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+
+        body.querySelectorAll('.btn-mark').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const cedula = btn.getAttribute('data-cedula');
+                const status = btn.getAttribute('data-status');
+                await registrarAsistencia(cedula, status);
+            });
+        });
+    }
+
+    async function registrarAsistencia(cedula, status) {
+        const as = evoState.asistencias.find(x => x.cedula_socio === cedula);
+        if (!as) return;
+
+        as.estado = status;
+        as.hora_llegada = status === 'AUSENTE' ? null : new Date().toISOString();
+
+        try {
+            const client = getSupabaseClient();
+            const { error } = await client.from('unoric_asistencias').update({
+                estado: as.estado,
+                hora_llegada: as.hora_llegada
+            }).eq('id', as.id);
+            
+            if (error) throw error;
+            
+            renderAsistencias(searchAsis.value);
+            updateAsistenciaStats();
+        } catch (e) {
+            console.error(e);
+            showAlert('Error', 'No se pudo registrar la asistencia.');
+        }
+    }
+
+    function updateAsistenciaStats() {
+        const p = evoState.asistencias.filter(x => x.estado === 'PUNTUAL').length;
+        const a = evoState.asistencias.filter(x => x.estado === 'ATRASADO').length;
+        const u = evoState.asistencias.filter(x => x.estado === 'AUSENTE').length;
+
+        document.getElementById('stat-presentes').textContent = p;
+        document.getElementById('stat-atrasados').textContent = a;
+        document.getElementById('stat-ausentes').textContent = u;
+        document.getElementById('stat-total-convocados').textContent = evoState.asistencias.length;
+    }
+
+    async function procesarMultasEventos(evento, ausentes) {
+        if (ausentes.length === 0) return;
+
+        const tipos = await fetchTiposPago();
+        let tipoMulta = tipos.find(t => t.codigo === 'MULTA_AUSENCIA');
+        if (!tipoMulta) {
+             tipoMulta = tipos.find(t => t.descripcion.toUpperCase().includes('MULTA')) || tipos[0];
+        }
+
+        const cargoPayload = ausentes.map(au => ({
+            cedula_socio: au.cedula_socio,
+            tipo_pago_id: tipoMulta.id,
+            descripcion: `${evento.tipo}: ${evento.descripcion}`,
+            monto_esperado: evento.multa_ausencia,
+            fecha_solicitud: evento.fecha,
+            estado: 'PENDIENTE',
+            created_by: currentUser?.id
+        }));
+
+        const client = getSupabaseClient();
+        for (let i = 0; i < cargoPayload.length; i += 100) {
+            const { error } = await client.from('unoric_pagos').insert(cargoPayload.slice(i, i + 100));
+            if (error) throw error;
+        }
+    }
 }
 

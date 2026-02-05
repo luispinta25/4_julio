@@ -9,6 +9,11 @@
     <link rel="stylesheet" href="css/socios.css">
     <link rel="stylesheet" href="css/lotes.css">
     <link rel="stylesheet" href="css/pagos.css">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#0230B9">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="apple-touch-icon" href="https://i.ibb.co/1tgLKr62/Gemini-Generated-Image-yqe70kyqe70kyqe7.webp">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
@@ -54,6 +59,13 @@
             <i class="fas fa-bars"></i>
         </button>
 
+        <button id="quick-home-btn" class="mobile-menu-toggle" style="top: 4.25rem;" title="Ir al Inicio">
+            <i class="fas fa-house"></i>
+        </button>
+
+        <!-- Contenedor dinámico de botones de eventos en curso -->
+        <div id="live-events-container"></div>
+
         <aside id="sidebar" class="sidebar">
             <div class="sidebar-header">
                 <img src="https://i.ibb.co/1tgLKr62/Gemini-Generated-Image-yqe70kyqe70kyqe7.webp" alt="Logo UNORIC"
@@ -75,6 +87,11 @@
                     <span>Cobro mensualidad</span>
                 </a>
 
+                <a href="#caja" class="nav-item" data-view="caja" data-module="caja">
+                    <i class="fas fa-cash-register"></i>
+                    <span>Caja</span>
+                </a>
+
                 <a href="#socios" class="nav-item" data-view="socios">
                     <i class="fas fa-users"></i>
                     <span>Socios</span>
@@ -87,6 +104,10 @@
                 <a href="#cobros" class="nav-item" data-view="cobros" data-module="cobros">
                     <i class="fas fa-cash-register"></i>
                     <span>Cobros</span>
+                </a>
+                <a href="#convocatorias" class="nav-item" data-view="convocatorias" data-module="convocatorias">
+                    <i class="fas fa-bullhorn"></i>
+                    <span>Convocatorias</span>
                 </a>
                 <a href="#regularizacion" class="nav-item" data-view="regularizacion" data-module="regularizacion">
                     <i class="fas fa-clipboard-check"></i>
@@ -261,11 +282,42 @@
         </div>
     </div>
 
+    <!-- Global Confirmation Modal -->
+    <div id="confirm-modal" class="modal hidden" aria-hidden="true" role="dialog" aria-modal="true">
+        <div class="modal-backdrop" id="confirm-backdrop"></div>
+        <div class="modal-card" style="max-width: 400px;">
+            <div class="modal-header" style="border-bottom: none; padding-bottom: 0;">
+                <div>
+                    <div class="modal-title" id="confirm-title" style="font-size: 1.25rem;">Confirmación</div>
+                </div>
+                <button class="modal-close" type="button" id="confirm-close" aria-label="Cerrar">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body" id="confirm-body" style="padding-top: 1rem; font-size: 1rem; color: var(--text-muted); line-height: 1.5;">
+                ¿Estás seguro de continuar?
+            </div>
+            <div class="modal-footer" style="border-top: none; padding-top: 1.5rem; gap: 12px;">
+                <button id="confirm-btn-no" class="btn btn-secondary" style="flex: 1;">No, cancelar</button>
+                <button id="confirm-btn-yes" class="btn btn-primary" style="flex: 1;">Sí, continuar</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Scripts -->
     <script src="js/config.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
-    <script src="js/app.js?v=6"></script>
+    <script src="js/app.js?v=7"></script>
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./service-worker.js')
+                    .then(reg => console.log('Service Worker registrado con éxito:', reg.scope))
+                    .catch(err => console.error('Error al registrar el Service Worker:', err));
+            });
+        }
+    </script>
 </body>
 
 </html>

@@ -1,0 +1,228 @@
+<div class="module-header">
+    <h2 class="module-title">Convocatorias y Asistencia</h2>
+    <div class="module-actions">
+        <button class="btn btn-primary" id="btn-nueva-convocatoria">
+            <i class="fas fa-plus-circle mr-2"></i>Nueva Convocatoria
+        </button>
+    </div>
+</div>
+
+<!-- Filtros y Lista de Eventos -->
+<div class="card mb-6">
+    <div class="card-header">
+        <h3 class="card-title">Eventos Recientes</h3>
+        <p class="card-subtitle">Gestiona las mingas, asambleas y sesiones de la asociación.</p>
+    </div>
+    <div class="table-container">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Fecha / Hora</th>
+                    <th>Tipo / Descripción</th>
+                    <th>Alcance</th>
+                    <th>Estado</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody id="eventos-body">
+                <tr>
+                    <td colspan="5" class="text-center p-8">
+                        <div class="text-muted">
+                            <i class="fas fa-spinner fa-spin mb-2" style="font-size: 1.5rem;"></i>
+                            <p>Cargando eventos...</p>
+                        </div>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Modal Nueva Convocatoria -->
+<div id="modal-evento" class="modal hidden">
+    <div class="modal-backdrop"></div>
+    <div class="modal-card" style="max-width: 900px; width: 95%; max-height: 90vh; display: flex; flex-direction: column;">
+        <div class="modal-header">
+            <h3 id="modal-evento-title">Nueva Convocatoria</h3>
+            <button class="modal-close" id="close-modal-evento">&times;</button>
+        </div>
+        <div class="modal-body p-8" style="overflow-y: auto; flex: 1;">
+            <form id="form-evento" class="form-grid">
+                <div class="form-field" style="grid-column: 1 / -1;">
+                    <label class="form-label">Tipo de Evento</label>
+                    <select id="evo-tipo" class="form-input" required>
+                        <option value="MINGA">MINGA</option>
+                        <option value="ASAMBLEA">ASAMBLEA</option>
+                        <option value="SESIÓN">SESIÓN</option>
+                        <option value="SESIÓN EXTRAORDINARIA">SESIÓN EXTRAORDINARIA</option>
+                        <option value="EVENTO SOCIAL">EVENTO SOCIAL</option>
+                    </select>
+                </div>
+                
+                <div class="form-field" style="grid-column: 1 / -1;">
+                    <label class="form-label">Descripción / Motivo</label>
+                    <input id="evo-descripcion" class="form-input" type="text" placeholder="Ej: Limpieza de áreas verdes Etapa 1" required />
+                </div>
+
+                <div class="form-field">
+                    <label class="form-label">Lugar del Evento</label>
+                    <input id="evo-lugar" class="form-input" type="text" placeholder="Ej: Cancha de uso múltiple" required />
+                </div>
+
+                <div class="form-field">
+                    <label class="form-label">Punto de Encuentro</label>
+                    <input id="evo-punto-encuentro" class="form-input" type="text" placeholder="Ej: Entrada principal" required />
+                </div>
+
+                <div class="form-field">
+                    <label class="form-label">Fecha</label>
+                    <input id="evo-fecha" class="form-input" type="date" required />
+                </div>
+
+                <div class="form-field">
+                    <label class="form-label">Hora Inicio</label>
+                    <input id="evo-hora-inicio" class="form-input" type="time" required />
+                </div>
+
+                <div class="form-field">
+                    <label class="form-label">Hora Toma de Lista (Atraso)</label>
+                    <input id="evo-hora-lista" class="form-input" type="time" required />
+                </div>
+
+                <div class="form-field">
+                    <label class="form-label">Multa por Ausencia ($)</label>
+                    <input id="evo-multa" class="form-input" type="number" step="0.01" min="0" value="0.00" required />
+                </div>
+
+                <div class="form-field" style="grid-column: 1 / -1;">
+                    <label class="form-label">Alcance de la Convocatoria</label>
+                    <select id="evo-alcance" class="form-input" required>
+                        <option value="GENERAL">GENERAL (Todos los socios)</option>
+                        <option value="ETAPA_1">SOLO ETAPA 1 (Verde)</option>
+                        <option value="ETAPA_2">SOLO ETAPA 2 (Rojo)</option>
+                        <option value="ETAPA_3">SOLO ETAPA 3 (Café)</option>
+                        <option value="CON_LOTES">SÓLO SOCIOS CON LOTES</option>
+                        <option value="ALFABETICO">POR RANGO ALFABÉTICO (Apellido)</option>
+                        <option value="MANUAL">SELECCIÓN MANUAL DE SOCIOS</option>
+                    </select>
+                </div>
+
+                <!-- Selección de Rango Alfabético (Oculto por defecto) -->
+                <div id="alfa-range-container" class="form-field hidden" style="grid-column: 1 / -1; background: #f8fafc; border: 1px dashed var(--border-color); border-radius: 8px; padding: 1rem;">
+                    <label class="form-label">Configurar Rango de Apellidos</label>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                        <div>
+                            <span class="text-xs text-muted mb-1 block">Desde la letra:</span>
+                            <select id="evo-alfa-inicio" class="form-input">
+                                <option value="A">A</option><option value="B">B</option><option value="C">C</option><option value="D">D</option><option value="E">E</option><option value="F">F</option><option value="G">G</option><option value="H">H</option><option value="I">I</option><option value="J">J</option><option value="K">K</option><option value="L">L</option><option value="M">M</option><option value="N">N</option><option value="O">O</option><option value="P">P</option><option value="Q">Q</option><option value="R">R</option><option value="S">S</option><option value="T">T</option><option value="U">U</option><option value="V">V</option><option value="W">W</option><option value="X">X</option><option value="Y">Y</option><option value="Z">Z</option>
+                            </select>
+                        </div>
+                        <div>
+                            <span class="text-xs text-muted mb-1 block">Hasta la letra:</span>
+                            <select id="evo-alfa-fin" class="form-input">
+                                <option value="A">A</option><option value="B">B</option><option value="C">C</option><option value="D">D</option><option value="E">E</option><option value="F">F</option><option value="G">G</option><option value="H">H</option><option value="I">I</option><option value="J">J</option><option value="K">K</option><option value="L">L</option><option value="M">M</option><option value="N">N</option><option value="O">O</option><option value="P">P</option><option value="Q">Q</option><option value="R">R</option><option value="S">S</option><option value="T">T</option><option value="U">U</option><option value="V">V</option><option value="W">W</option><option value="X">X</option><option value="Y">Y</option><option value="Z" selected>Z</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Selección Manual (Oculto por defecto) -->
+                <div id="manual-selection-container" class="form-field hidden" style="grid-column: 1 / -1; border: 1px solid var(--border-color); border-radius: 8px; padding: 1rem;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.8rem;">
+                        <div>
+                            <span class="text-sm font-bold">Seleccionar Socios Directamente</span>
+                            <p class="text-xs text-muted">Marca los socios que deben asistir a este evento.</p>
+                        </div>
+                        <input type="text" id="manual-socio-search" class="form-input" placeholder="Buscar por nombre..." style="width: 200px; padding: 6px 10px; font-size: 0.75rem;">
+                    </div>
+                    <div id="manual-socios-list" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; max-height: 250px; overflow-y: auto; background: white; padding: 10px; border-radius: 6px; border: 1px solid #edf2f7;">
+                        <!-- Se llena dinámicamente -->
+                    </div>
+                </div>
+
+                <div id="evento-msg" class="inline-message mt-4" style="grid-column: 1 / -1; display: none;"></div>
+
+                <div class="form-actions mt-6" style="grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                    <button type="button" class="btn btn-secondary" id="btn-cancelar-evento">Cancelar</button>
+                    <button type="submit" class="btn btn-primary" id="btn-guardar-evento">Crear Convocatoria</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Vista de Toma de Asistencia (Se activa al seleccionar un evento) -->
+<div id="seccion-asistencia" class="hidden">
+    <div class="module-header" style="border-top: 1px solid var(--border-color); padding-top: 2rem; margin-top: 2rem;">
+        <h2 class="module-title">Control de Asistencia: <span id="asistencia-evento-nombre" class="text-primary">...</span></h2>
+        <div class="module-actions">
+            <button class="btn btn-secondary" id="btn-volver-eventos">
+                <i class="fas fa-chevron-left mr-2"></i>Volver
+            </button>
+            <button class="btn btn-primary" id="btn-finalizar-evento" style="background: var(--accent-red);">
+                <i class="fas fa-check-double mr-2"></i>Finalizar y Generar Multas
+            </button>
+            <button class="btn btn-primary hidden" id="btn-descargar-asistencia" style="background: #10b981;">
+                <i class="fas fa-file-pdf mr-2"></i>Descargar Acta PDF
+            </button>
+        </div>
+    </div>
+
+    <div class="grid-2 mb-6">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">Resumen de Asistencia</h3>
+            </div>
+            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; padding: 1.5rem;">
+                <div class="stat-item" style="background: #f0fdf4; padding: 1rem; border-radius: 12px; border: 1px solid #bbf7d0;">
+                    <div class="text-xs font-bold text-success uppercase">Presentes</div>
+                    <div id="stat-presentes" class="text-2xl font-black text-success">0</div>
+                </div>
+                <div class="stat-item" style="background: #fefce8; padding: 1rem; border-radius: 12px; border: 1px solid #fef08a;">
+                    <div class="text-xs font-bold text-warning uppercase">Atrasados</div>
+                    <div id="stat-atrasados" class="text-2xl font-black text-warning">0</div>
+                </div>
+                <div class="stat-item" style="background: #fef2f2; padding: 1rem; border-radius: 12px; border: 1px solid #fecaca;">
+                    <div class="text-xs font-bold text-danger uppercase">Ausentes</div>
+                    <div id="stat-ausentes" class="text-2xl font-black text-danger">0</div>
+                </div>
+                <div class="stat-item" style="background: #eff6ff; padding: 1rem; border-radius: 12px; border: 1px solid #bfdbfe;">
+                    <div class="text-xs font-bold text-primary uppercase">Total</div>
+                    <div id="stat-total-convocados" class="text-2xl font-black text-primary">0</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header border-none">
+                <h3 class="card-title">Búsqueda Rápida de Socio</h3>
+                <p class="card-subtitle">Busca por nombre o cédula para marcar asistencia.</p>
+            </div>
+            <div class="p-6">
+                <div class="input-wrapper">
+                    <i class="fas fa-search" style="position: absolute; left: 14px; top: 14px; color: #94a3b8;"></i>
+                    <input type="text" id="asistencia-search" class="form-input" placeholder="Nombre o Cédula..." style="padding-left: 44px; height: 48px; border-radius: 12px;">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="table-container">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Socio</th>
+                        <th>Cédula / Lote</th>
+                        <th>Hora Registro</th>
+                        <th>Estado</th>
+                        <th>Acción</th>
+                    </tr>
+                </thead>
+                <tbody id="asistencia-body">
+                    <tr><td colspan="5" class="text-center p-8 text-muted">Cargando lista de convocados...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>

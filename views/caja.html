@@ -1,0 +1,63 @@
+<div class="module-header">
+    <h2 class="module-title">Caja y Gestión de Cobros</h2>
+</div>
+
+<div class="caja-hub-container">
+    <div class="quick-access-section" style="margin-top: 2rem;">
+        <div class="quick-access-grid" style="grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));">
+            
+            <!-- Opción: Cobrar -->
+            <div class="quick-card">
+                <div class="quick-card-icon icon-green">
+                    <i class="fas fa-hand-holding-usd"></i>
+                </div>
+                <div class="quick-card-content">
+                    <h3>Cobrar / Estado de Cuenta</h3>
+                    <p>Ver todas las deudas de un socio y registrar pagos en un solo lugar.</p>
+                </div>
+                <button class="btn btn-primary" type="button" id="caja-goto-cobros">
+                    Ir a Cobros <i class="fas fa-arrow-right"></i>
+                </button>
+            </div>
+
+            <!-- Opción: Crear Cuotas Masivas -->
+            <div class="quick-card">
+                <div class="quick-card-icon icon-primary">
+                    <i class="fas fa-file-invoice-dollar"></i>
+                </div>
+                <div class="quick-card-content">
+                    <h3>Crear Cuotas Masivas</h3>
+                    <p>Generar cobros para múltiples socios usando filtros (etapas, antigüedad, etc).</p>
+                </div>
+                <button class="btn btn-secondary" type="button" id="caja-goto-generador">
+                    Generar Cuotas <i class="fas fa-plus"></i>
+                </button>
+            </div>
+
+            <!-- Opción: Mensualidades (Acceso heredado) -->
+            <div class="quick-card">
+                <div class="quick-card-icon icon-blue">
+                    <i class="fas fa-calendar-alt"></i>
+                </div>
+                <div class="quick-card-content">
+                    <h3>Mensualidades Anuales</h3>
+                    <p>Cálculo específico de cuotas por año y cantidad de lotes.</p>
+                </div>
+                <button class="btn btn-secondary" type="button" id="caja-goto-mensualidades">
+                    Ver Mensualidades <i class="fas fa-arrow-right"></i>
+                </button>
+            </div>
+
+        </div>
+    </div>
+
+    <div class="card mt-4">
+        <div class="card-header">
+            <h3 class="card-title">Resumen de Caja del Día</h3>
+            <p class="card-subtitle">Próximamente: Visualización rápida de cobros realizados hoy.</p>
+        </div>
+        <div class="helper-text">
+            Este módulo servirá como punto de entrada único para todas las operaciones financieras.
+        </div>
+    </div>
+</div>
