@@ -421,8 +421,9 @@ async function loadView(viewName) {
         if (currentViewName === viewName) return;
 
         // If cached, swap instantly.
+        // EXCEPCIÓN: Módulo crear_cuotas no usa caché de vista para asegurar datos frescos
         const cached = viewCache.get(viewName);
-        if (cached && cached.initialized) {
+        if (cached && cached.initialized && viewName !== 'crear_cuotas') {
             mainContent.innerHTML = '';
             mainContent.appendChild(cached.containerEl);
             currentViewName = viewName;
@@ -3631,6 +3632,9 @@ async function initCrearCuotasModule() {
 
     fechaInput.value = todayISODate();
 
+    // Resetear estado para evitar heredar filtros anteriores si se re-inicializa
+    cuotasState.sociosFiltrados = [];
+
     if (backBtn) {
         backBtn.addEventListener('click', () => {
             loadView('caja');
@@ -3645,7 +3649,7 @@ async function initCrearCuotasModule() {
         }
     });
 
-    // Cargar tipos de pago
+    // Cargar tipos de pago (Fresco)
     try {
         cuotasState.tiposPago = await fetchTiposPago();
         tipoPagoSelect.innerHTML = '<option value="">Selecciona un tipo...</option>' + 
@@ -3654,22 +3658,10 @@ async function initCrearCuotasModule() {
         console.error('Error al cargar tipos de pago:', err);
     }
 
-    // Asegurarse de que los socios estén cargados
-    if (allSocios.length === 0) {
+    // Forzar carga de datos frescos del servidor para este módulo específico
+    await withLoader('Obteniendo datos actualizados...', async () => {
         await preloadAllData();
-        // Intentar cargar socios si preloadAllData no llenó allSocios
-        if (allSocios.length === 0) {
-            const client = getSupabaseClient();
-            const { data: socios } = await client.from('unoric_socios').select('*');
-            const { data: lotes } = await client.from('unoric_lotes').select('*');
-            if (socios && lotes) {
-                allSocios = socios.map(s => ({
-                    ...s,
-                    lotes: lotes.filter(l => l.socio === s.cedula)
-                }));
-            }
-        }
-    }
+    });
 
     function aplicarFiltros() {
         const desde = Number(filterDesde.value) || 0;
@@ -3727,7 +3719,7 @@ async function initCrearCuotasModule() {
         const originalDescripcion = descripcionInput.value.trim();
         const monto = Number(montoInput.value);
         const fecha = fechaInput.value;
-        const anio = filterDesde.value || new Date(fecha).getFullYear();
+        const anio = filterHasta.value || new Date(fecha).getFullYear();
         
         // Formato solicitado: nombre - año
         const descripcion = `${originalDescripcion} - ${anio}`;
