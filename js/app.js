@@ -1074,7 +1074,7 @@ async function fetchPendientesPorSocios(cedulas) {
         let allData = [];
         for (const chunk of chunks) {
             const { data, error } = await client
-                .from('vw_pagos_por_socio')
+                .from('vw_pagos_unoric_app')
                 .select('cedula_socio, monto_esperado, monto_abonado, estado_calculado, estado')
                 .in('cedula_socio', chunk);
             
@@ -2287,23 +2287,36 @@ async function fetchLotesBySocio(cedula) {
 async function fetchPagosPorSocio(cedula) {
     const client = getSupabaseClient();
 
-    // Prefer view with calculated state. Fallback to base table if view not available.
-    const { data, error } = await client
-        .from('vw_pagos_por_socio')
-        .select('*')
-        .eq('cedula_socio', cedula)
-        .order('created_at', { ascending: false });
+    try {
+        // Usamos el nuevo nombre de vista UNORIC para evitar colisiones de caché
+        const { data, error } = await client
+            .from('vw_pagos_unoric_app')
+            .select('*')
+            .eq('cedula_socio', cedula)
+            .order('created_at', { ascending: false });
 
-    if (!error) return data || [];
+        if (!error && data && data.length > 0) return data;
+        
+        if (error) {
+            console.error('Error en vista UNORIC:', error.message);
+        }
+    } catch (e) {
+        console.warn('Fallo en fetch de vista.');
+    }
 
-    // Fallback: base table without calculated state.
+    // Fallback directo a la tabla
     const { data: pagos, error: pagosError } = await client
         .from('unoric_pagos')
         .select('id, cedula_socio, id_lote, tipo_pago_id, descripcion, monto_esperado, periodo_desde, periodo_hasta, estado, created_at, created_by')
         .eq('cedula_socio', cedula)
         .order('created_at', { ascending: false });
+
     if (pagosError) throw pagosError;
-    return pagos || [];
+    return (pagos || []).map(p => ({
+        ...p,
+        estado_calculado: p.estado,
+        monto_abonado: p.estado === 'PAGADO' ? p.monto_esperado : 0
+    }));
 }
 
 // ==========================================

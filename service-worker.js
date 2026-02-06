@@ -36,17 +36,18 @@ self.addEventListener('activate', (event) => {
 
 // Fetch events
 self.addEventListener('fetch', (event) => {
-  // Para las búsquedas y datos, queremos asegurar que no haya cache si es del módulo de cuotas
-  // O simplemente usar Network First para todo lo que no sean assets estáticos
+  // Detectar si es una petición a la API de Supabase (dominio personalizado o estándar)
+  const isSupabase = event.request.url.includes('supabase.co') || 
+                     event.request.url.includes('luispintasolutions.com') ||
+                     event.request.url.includes('/rest/v1/');
   
-  const isSupabase = event.request.url.includes('supabase.co');
   const isView = event.request.url.includes('/views/');
   
   if (isSupabase || isView) {
-    // Network First strategy para Supabase y Vistas
+    // Network First strategy para API y Vistas
     event.respondWith(
       fetch(event.request).then((response) => {
-        // Solo cacheamos vistas exitosas (Supabase no se cachea por regla general aquí)
+        // Solo cacheamos vistas exitosas. LA API NUNCA SE CACHEA AQUÍ.
         if (response.status === 200 && isView) {
           return caches.open(CACHE_NAME).then((cache) => {
             cache.put(event.request, response.clone());
